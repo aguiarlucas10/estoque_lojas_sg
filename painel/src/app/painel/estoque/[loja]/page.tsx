@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
+import { AjustarBotao } from "./AjustarBotao";
 
 export const dynamic = "force-dynamic";
 
@@ -118,12 +119,13 @@ export default async function EstoqueLojaPage({
               <th className="text-right px-6 py-3">Custo un.</th>
               <th className="text-right px-6 py-3">Valor</th>
               <th className="text-right px-6 py-3">Última contagem</th>
+              {scope.tipo === "admin" && <th className="text-right px-6 py-3 w-24">Ação</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-hairline-soft">
             {items.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-6 py-12 text-center text-muted">
+                <td colSpan={scope.tipo === "admin" ? 8 : 7} className="px-6 py-12 text-center text-muted">
                   Nenhum SKU com saldo nesta loja ainda.
                 </td>
               </tr>
@@ -155,6 +157,17 @@ export default async function EstoqueLojaPage({
                       ? dataBR.format(new Date(i.ultima_contagem_em))
                       : "—"}
                   </td>
+                  {scope.tipo === "admin" && (
+                    <td className="px-6 py-4 text-right">
+                      <AjustarBotao
+                        loja_id={lojaRow.id as string}
+                        produto_id={i.produto_id}
+                        sku={p?.sku ?? "—"}
+                        nome={p?.nome ?? "—"}
+                        qtd_atual={i.quantidade}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}
