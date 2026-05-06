@@ -117,7 +117,10 @@ export async function biparAction(
   codigo: string,
   qtd_a_adicionar: number = 1,
 ): Promise<BipResult> {
-  const codigoLimpo = codigo.trim();
+  // SKUs e aliases sao gravados em caixa alta no cadastro; normalizamos
+  // a entrada pra que digitacao manual em minuscula tambem funcione.
+  // Numeros e EANs nao sao afetados por toUpperCase().
+  const codigoLimpo = codigo.trim().toUpperCase();
   if (!codigoLimpo) return { ok: false, error: "Código vazio." };
   if (qtd_a_adicionar <= 0) return { ok: false, error: "Quantidade deve ser positiva." };
 
