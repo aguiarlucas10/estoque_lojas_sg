@@ -142,7 +142,11 @@ export default async function EstoqueLojaPage({
                   <td className="px-6 py-4 font-mono text-[14px] text-body-strong">
                     {p?.sku ?? "—"}
                   </td>
-                  <td className="px-6 py-4 text-[14px] text-ink">{p?.nome ?? "—"}</td>
+                  <td className="px-6 py-4 text-[14px] text-ink">
+                    <div className="truncate max-w-[280px]" title={p?.nome ?? ""}>
+                      {p?.nome ?? "—"}
+                    </div>
+                  </td>
                   <td className="px-6 py-4 text-[13px] text-muted">{p?.categoria ?? "—"}</td>
                   <td
                     className={`px-6 py-4 text-right font-medium ${isNegativo ? "text-error" : "text-ink"}`}
