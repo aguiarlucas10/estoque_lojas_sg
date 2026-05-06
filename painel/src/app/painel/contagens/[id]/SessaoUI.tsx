@@ -30,6 +30,7 @@ type Props = {
   status: "aberta" | "em_contagem" | "em_revisao" | "finalizada" | "cancelada";
   itens: ItemSessao[];
   totalEscopo: number;
+  isAdmin: boolean;
 };
 
 const moedaBR = new Intl.NumberFormat("pt-BR", {
@@ -37,7 +38,7 @@ const moedaBR = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
-export function SessaoUI({ sessao_id, status, itens, totalEscopo }: Props) {
+export function SessaoUI({ sessao_id, status, itens, totalEscopo, isAdmin }: Props) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -68,6 +69,7 @@ export function SessaoUI({ sessao_id, status, itens, totalEscopo }: Props) {
       <ActionsBar
         status={status}
         pending={pending}
+        isAdmin={isAdmin}
         onIniciar={() => withAction(() => iniciarContagemAction(sessao_id))}
         onEncerrar={() => withAction(() => encerrarContagemAction(sessao_id))}
         onReabrir={() => withAction(() => reabrirContagemAction(sessao_id))}
@@ -99,7 +101,8 @@ export function SessaoUI({ sessao_id, status, itens, totalEscopo }: Props) {
           <RevisaoTable
             sessao_id={sessao_id}
             itens={itens}
-            podeAprovar={status === "em_revisao"}
+            podeAprovar={status === "em_revisao" && isAdmin}
+            isAdmin={isAdmin}
             pending={pending}
             setErro={setErro}
           />
@@ -165,6 +168,7 @@ function EmContagemPanel({
 function ActionsBar({
   status,
   pending,
+  isAdmin,
   onIniciar,
   onEncerrar,
   onReabrir,
@@ -173,6 +177,7 @@ function ActionsBar({
 }: {
   status: Props["status"];
   pending: boolean;
+  isAdmin: boolean;
   onIniciar: () => void;
   onEncerrar: () => void;
   onReabrir: () => void;
@@ -193,7 +198,7 @@ function ActionsBar({
           <SecondaryBtn onClick={onCancelar} disabled={pending}>Cancelar sessão</SecondaryBtn>
         </>
       )}
-      {status === "em_revisao" && (
+      {status === "em_revisao" && isAdmin && (
         <>
           <PrimaryBtn onClick={onFazerBalanco} disabled={pending}>
             Fazer balanço — aplicar no estoque
@@ -201,6 +206,22 @@ function ActionsBar({
           <SecondaryBtn onClick={onReabrir} disabled={pending}>
             Voltar para contagem
           </SecondaryBtn>
+        </>
+      )}
+      {status === "em_revisao" && !isAdmin && (
+        <>
+          <Link
+            href="/painel/contagens"
+            className="inline-flex items-center justify-center bg-primary text-on-primary rounded-pill h-10 px-5 text-[15px] font-medium hover:bg-primary-active transition-colors"
+          >
+            Finalizar contagem
+          </Link>
+          <SecondaryBtn onClick={onReabrir} disabled={pending}>
+            Voltar para contagem
+          </SecondaryBtn>
+          <p className="text-[13px] text-muted ml-2">
+            O admin vai revisar e aplicar o balanço no estoque.
+          </p>
         </>
       )}
       {(status === "finalizada" || status === "cancelada") && (
@@ -214,21 +235,19 @@ function RevisaoTable({
   sessao_id,
   itens,
   podeAprovar,
+  isAdmin,
   pending,
   setErro,
 }: {
   sessao_id: string;
   itens: ItemSessao[];
   podeAprovar: boolean;
+  isAdmin: boolean;
   pending: boolean;
   setErro: (e: string | null) => void;
 }) {
   const router = useRouter();
   const [actingOn, setActingOn] = useState<string | null>(null);
-  const aprovados = itens.filter((i) => i.status === "aprovada").length;
-  const rejeitados = itens.filter((i) => i.status === "rejeitada").length;
-  const recontar = itens.filter((i) => i.status === "recontar").length;
-  const pendentes = itens.filter((i) => i.status === "pendente").length;
 
   function setStatus(produto_id: string, status: ItemSessao["status"]) {
     setErro(null);
@@ -240,6 +259,45 @@ function RevisaoTable({
       setActingOn(null);
     })();
   }
+
+  if (!isAdmin) {
+    // Visão da loja: cega — sem teórica, sem diferença, sem valor, sem ação por linha.
+    return (
+      <div className="bg-surface-card border border-hairline rounded-xl overflow-hidden">
+        <table className="w-full">
+          <thead className="bg-surface-strong border-b border-hairline">
+            <tr className="caption-uppercase text-muted">
+              <th className="text-left px-5 py-3">SKU</th>
+              <th className="text-left px-5 py-3">Produto</th>
+              <th className="text-right px-5 py-3">Contada</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-hairline-soft">
+            {itens.map((i) => (
+              <tr key={i.produto_id} className="hover:bg-canvas-soft">
+                <td className="px-5 py-3 font-mono text-[13px] text-body-strong">{i.sku}</td>
+                <td className="px-5 py-3 text-[13px] text-ink">
+                  <div className="truncate max-w-[600px]" title={i.nome}>{i.nome}</div>
+                  {i.categoria && (
+                    <div className="text-[11px] text-muted">{i.categoria}</div>
+                  )}
+                </td>
+                <td className="px-5 py-3 text-right text-[13px] text-ink font-medium">
+                  {i.qtd_contada}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    );
+  }
+
+  // Visão do admin: tudo (teórica, diferença, valor, ações por linha)
+  const aprovados = itens.filter((i) => i.status === "aprovada").length;
+  const rejeitados = itens.filter((i) => i.status === "rejeitada").length;
+  const recontar = itens.filter((i) => i.status === "recontar").length;
+  const pendentes = itens.filter((i) => i.status === "pendente").length;
 
   return (
     <div>

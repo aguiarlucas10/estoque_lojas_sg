@@ -59,6 +59,7 @@ export default async function SessaoPage({
   const loja = sessao.loja as unknown as { id: string; codigo: string; nome: string } | null;
   const scope = await getLojaScope();
   if (scope.tipo === "loja" && loja?.id !== scope.loja_id) notFound();
+  const isAdmin = scope.tipo === "admin";
   const status = sessao.status as ItemSessao["status"] extends never
     ? never
     : "aberta" | "em_contagem" | "em_revisao" | "finalizada" | "cancelada";
@@ -174,22 +175,26 @@ export default async function SessaoPage({
         <StatusBadgeBig status={sessao.status as string} />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+      <div className={`grid grid-cols-2 ${isAdmin ? "sm:grid-cols-4" : "sm:grid-cols-2"} gap-3 mb-8`}>
         <Stat
           label="Itens contados"
           value={itens.length.toLocaleString("pt-BR")}
           hint={`de ${totalEscopo.toLocaleString("pt-BR")} no escopo`}
         />
-        <Stat
-          label="Soma diferenças"
-          value={totalDiferenca.toLocaleString("pt-BR")}
-          hint="quantidade absoluta"
-        />
-        <Stat
-          label="Valor de ajuste"
-          value={moedaBR.format(valorAjuste)}
-          tone={valorAjuste < 0 ? "error" : "default"}
-        />
+        {isAdmin && (
+          <Stat
+            label="Soma diferenças"
+            value={totalDiferenca.toLocaleString("pt-BR")}
+            hint="quantidade absoluta"
+          />
+        )}
+        {isAdmin && (
+          <Stat
+            label="Valor de ajuste"
+            value={moedaBR.format(valorAjuste)}
+            tone={valorAjuste < 0 ? "error" : "default"}
+          />
+        )}
         <Stat
           label="Última contagem"
           value={
@@ -207,6 +212,7 @@ export default async function SessaoPage({
         status={status}
         itens={itens}
         totalEscopo={totalEscopo}
+        isAdmin={isAdmin}
       />
     </div>
   );
