@@ -66,7 +66,9 @@ function extrairCabecalho(texto: string): {
 export async function parseRecebimentoPDF(
   buffer: Buffer | Uint8Array,
 ): Promise<ParsedRecebimentoPDF> {
-  const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  // unpdf exige Uint8Array "puro" — Buffer (ainda que seja subclasse) é
+  // rejeitado. Cria uma cópia em Uint8Array nativo.
+  const data = Uint8Array.from(buffer);
   // unpdf é projetado pra serverless/edge — não depende de Web Workers
   // nem de APIs de browser indisponíveis em runtime Node serverless.
   const pdf = await getDocumentProxy(data);
