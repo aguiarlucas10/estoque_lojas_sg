@@ -87,11 +87,14 @@ export async function definirStatusItemAction(
 
 export async function aprovarTodosAction(sessao_id: string): Promise<Result> {
   const sb = getSupabase();
+  // Aprova somente itens efetivamente contados (qtd_contada > 0).
+  // SKUs do escopo nao bipados ficam pendentes — nao geram movimento.
   const { error } = await sb
     .from("lj_sessoes_itens")
     .update({ status: "aprovada", aprovado_em: new Date().toISOString() })
     .eq("sessao_id", sessao_id)
-    .neq("status", "rejeitada"); // não sobrescreve rejeitadas
+    .neq("status", "rejeitada")
+    .gt("qtd_contada", 0);
   if (error) return { ok: false, error: error.message };
   revalidatePath(`/painel/contagens/${sessao_id}`);
   return { ok: true };
@@ -234,16 +237,18 @@ export async function finalizarContagemAction(
   sessao_id: string,
 ): Promise<{ ok: true; movimentos: number } | { ok: false; error: string }> {
   const sb = getSupabase();
-  // verifica se há pendentes
+  // Verifica pendencias somente entre os itens efetivamente contados.
+  // SKUs nao bipados nao precisam ser aprovados/rejeitados.
   const { count } = await sb
     .from("lj_sessoes_itens")
     .select("*", { count: "exact", head: true })
     .eq("sessao_id", sessao_id)
-    .in("status", ["pendente", "recontar"]);
+    .in("status", ["pendente", "recontar"])
+    .gt("qtd_contada", 0);
   if ((count ?? 0) > 0) {
     return {
       ok: false,
-      error: `Existem ${count} item(ns) ainda pendentes ou marcados pra recontagem. Aprove ou rejeite todos antes de finalizar.`,
+      error: `Existem ${count} item(ns) contado(s) ainda pendentes ou marcados pra recontagem. Aprove ou rejeite todos antes de finalizar.`,
     };
   }
   const { data, error } = await sb.rpc("aplicar_contagem_validada", {

@@ -89,7 +89,7 @@ export default async function SessaoPage({
     );
   }
 
-  const itens: ItemSessao[] = (itensRaw ?? []).map((r) => {
+  const todosItens: ItemSessao[] = (itensRaw ?? []).map((r) => {
     const p = prodMap.get(r.produto_id as string);
     return {
       produto_id: r.produto_id as string,
@@ -104,8 +104,18 @@ export default async function SessaoPage({
       status: r.status as ItemSessao["status"],
     };
   });
+
+  // Apos encerrar a contagem, foca somente nos SKUs efetivamente contados
+  // (qtd_contada > 0). SKUs do escopo que nao foram bipados ficam ignorados:
+  // o saldo deles no sistema nao eh alterado pela sessao.
+  const ehFasePosContagem =
+    sessao.status === "em_revisao" ||
+    sessao.status === "finalizada" ||
+    sessao.status === "cancelada";
+  const itens = ehFasePosContagem
+    ? todosItens.filter((i) => i.qtd_contada > 0)
+    : todosItens;
   itens.sort((a, b) => {
-    // Em revisão: mostra divergências primeiro
     if (Math.abs(b.diferenca) !== Math.abs(a.diferenca)) {
       return Math.abs(b.diferenca) - Math.abs(a.diferenca);
     }
@@ -158,7 +168,15 @@ export default async function SessaoPage({
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-        <Stat label="Itens no escopo" value={itens.length.toLocaleString("pt-BR")} />
+        <Stat
+          label={ehFasePosContagem ? "Itens contados" : "Itens no escopo"}
+          value={itens.length.toLocaleString("pt-BR")}
+          hint={
+            ehFasePosContagem && todosItens.length !== itens.length
+              ? `de ${todosItens.length.toLocaleString("pt-BR")} no escopo`
+              : undefined
+          }
+        />
         <Stat
           label="Soma diferenças"
           value={totalDiferenca.toLocaleString("pt-BR")}
