@@ -23,24 +23,30 @@ export type ParsedRecebimentoPDF = {
  * O preço é ignorado a pedido (PDF de reposição não traz custo real).
  */
 function extrairItensDoTexto(texto: string): ItemPDF[] {
-  const linhas = texto.split(/\r?\n/);
-  // Padrão: termina com UN <qtd em BR> <preço em BR>
-  // Grupos: 1=desc, 2=sku, 3=qtd, 4=preço (preço ignorado a pedido).
+  // Procura padrão `<SKU> UN <qtd em BR> <preço em BR>` em qualquer lugar do
+  // texto (unpdf pode retornar tudo numa string contínua, sem newlines).
+  // Grupos: 1=sku, 2=qtd, 3=preço (preço ignorado a pedido).
   const itemRe =
-    /^(.+?)\s+([A-Z0-9][A-Z0-9_\-]+)\s+UN\s+(\d+(?:,\d+)?)\s+(\d+(?:\.\d{3})*(?:,\d+)?)\s*$/;
+    /([A-Z0-9][A-Z0-9_\-]+)\s+UN\s+(\d+(?:,\d+)?)\s+(\d+(?:\.\d{3})*(?:,\d+)?)/g;
   const out: ItemPDF[] = [];
-  for (const raw of linhas) {
-    const linha = raw.trim();
-    if (!linha) continue;
-    const m = itemRe.exec(linha);
-    if (!m) continue;
-    const qtd = parseFloat(m[3].replace(",", "."));
+  let lastEnd = 0;
+  let m: RegExpExecArray | null;
+  while ((m = itemRe.exec(texto)) !== null) {
+    const sku = m[1].trim();
+    // Filtra falsos positivos do cabeçalho da tabela ("Código UN Quantidade Preço")
+    if (sku === "UN" || sku === "Código" || sku === "CODIGO") continue;
+    const qtd = parseFloat(m[2].replace(",", "."));
     if (!Number.isFinite(qtd) || qtd <= 0) continue;
+    // Descrição: pega o trecho antes do SKU (limitado a 200 chars)
+    const inicioSku = m.index;
+    const descBruta = texto.slice(lastEnd, inicioSku).trim();
+    const desc = descBruta.length > 200 ? descBruta.slice(-200).trim() : descBruta;
     out.push({
-      sku_pdv: m[2].trim(),
-      descricao: m[1].trim(),
+      sku_pdv: sku,
+      descricao: desc,
       qtd,
     });
+    lastEnd = itemRe.lastIndex;
   }
   return out;
 }

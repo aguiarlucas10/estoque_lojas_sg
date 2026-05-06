@@ -48,10 +48,12 @@ export async function previewPDFAction(
   }
 
   if (parsed.itens.length === 0) {
+    // Mostra preview do texto extraído pra ajudar a diagnosticar formato inesperado
+    const preview = parsed.texto_bruto.slice(0, 800).replace(/\s+/g, " ").trim();
     return {
       ok: false,
       error:
-        "Nenhum item detectado no PDF. Verifique se é um pedido de venda do Bling com formato esperado.",
+        `Nenhum item detectado no PDF. Texto extraído (preview): "${preview}${parsed.texto_bruto.length > 800 ? "…" : ""}"`,
     };
   }
 
