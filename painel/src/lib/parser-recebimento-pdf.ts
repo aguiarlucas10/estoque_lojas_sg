@@ -1,5 +1,5 @@
 import "server-only";
-import { getDocument } from "pdfjs-dist/legacy/build/pdf.mjs";
+import { extractText, getDocumentProxy } from "unpdf";
 
 export type ItemPDF = {
   /** SKU como veio no PDF (pode estar truncado pelo layout do Bling). */
@@ -67,31 +67,11 @@ export async function parseRecebimentoPDF(
   buffer: Buffer | Uint8Array,
 ): Promise<ParsedRecebimentoPDF> {
   const data = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  const loadingTask = getDocument({ data, disableFontFace: true });
-  const pdf = await loadingTask.promise;
-  const partes: string[] = [];
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const content = await page.getTextContent();
-    // Heurística: junta itens preservando ordem; insere quebra quando o y muda
-    let lastY: number | null = null;
-    let linhaAtual = "";
-    const linhas: string[] = [];
-    for (const item of content.items) {
-      const it = item as { str: string; transform?: number[] };
-      const str = it.str ?? "";
-      const y = it.transform?.[5] ?? 0;
-      if (lastY !== null && Math.abs(y - lastY) > 2) {
-        if (linhaAtual.trim()) linhas.push(linhaAtual);
-        linhaAtual = "";
-      }
-      linhaAtual += (linhaAtual && !str.startsWith(" ") ? " " : "") + str;
-      lastY = y;
-    }
-    if (linhaAtual.trim()) linhas.push(linhaAtual);
-    partes.push(linhas.join("\n"));
-  }
-  const texto_bruto = partes.join("\n");
+  // unpdf é projetado pra serverless/edge — não depende de Web Workers
+  // nem de APIs de browser indisponíveis em runtime Node serverless.
+  const pdf = await getDocumentProxy(data);
+  const { text } = await extractText(pdf, { mergePages: true });
+  const texto_bruto = Array.isArray(text) ? text.join("\n") : text;
   const itens = extrairItensDoTexto(texto_bruto);
   const cab = extrairCabecalho(texto_bruto);
   return {
