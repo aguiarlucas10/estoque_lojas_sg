@@ -106,6 +106,8 @@ select
   sum(qtd)                                  as quantidade,
   max(case when tipo='contagem_validada'
            then data_evento end)            as ultima_contagem_em,
+  max(case when tipo='entrada_compra'
+           then data_evento end)            as ultimo_recebimento_em,
   max(criado_em)                            as atualizado_em
 from lj_movimentos_estoque
 group by loja_id, produto_id

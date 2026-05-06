@@ -9,6 +9,7 @@ type EstoqueItem = {
   produto_id: string;
   quantidade: number;
   ultima_contagem_em: string | null;
+  ultimo_recebimento_em: string | null;
 };
 
 type Produto = {
@@ -53,7 +54,7 @@ export default async function EstoqueLojaPage({
 
   const { data: estoque } = await supabase
     .from("lj_estoque_atual")
-    .select("produto_id, quantidade, ultima_contagem_em")
+    .select("produto_id, quantidade, ultima_contagem_em, ultimo_recebimento_em")
     .eq("loja_id", lojaRow.id)
     .neq("quantidade", 0)
     .order("quantidade", { ascending: false });
@@ -62,6 +63,7 @@ export default async function EstoqueLojaPage({
     produto_id: r.produto_id as string,
     quantidade: Number(r.quantidade),
     ultima_contagem_em: r.ultima_contagem_em as string | null,
+    ultimo_recebimento_em: r.ultimo_recebimento_em as string | null,
   }));
 
   let produtos: Record<string, Produto> = {};
@@ -119,13 +121,14 @@ export default async function EstoqueLojaPage({
               <th className="text-right px-6 py-3">Custo un.</th>
               <th className="text-right px-6 py-3">Valor</th>
               <th className="text-right px-6 py-3">Última contagem</th>
+              <th className="text-right px-6 py-3">Último recebimento</th>
               {scope.tipo === "admin" && <th className="text-right px-6 py-3 w-24">Ação</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-hairline-soft">
             {items.length === 0 && (
               <tr>
-                <td colSpan={scope.tipo === "admin" ? 8 : 7} className="px-6 py-12 text-center text-muted">
+                <td colSpan={scope.tipo === "admin" ? 9 : 8} className="px-6 py-12 text-center text-muted">
                   Nenhum SKU com saldo nesta loja ainda.
                 </td>
               </tr>
@@ -155,6 +158,11 @@ export default async function EstoqueLojaPage({
                   <td className="px-6 py-4 text-right text-[13px] text-muted">
                     {i.ultima_contagem_em
                       ? dataBR.format(new Date(i.ultima_contagem_em))
+                      : "—"}
+                  </td>
+                  <td className="px-6 py-4 text-right text-[13px] text-muted">
+                    {i.ultimo_recebimento_em
+                      ? dataBR.format(new Date(i.ultimo_recebimento_em))
                       : "—"}
                   </td>
                   {scope.tipo === "admin" && (
