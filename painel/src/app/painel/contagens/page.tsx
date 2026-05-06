@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -26,14 +27,19 @@ const TIPO_LABEL: Record<string, string> = {
 };
 
 export default async function ContagensPage() {
+  const scope = await getLojaScope();
   const sb = getSupabase();
-  const { data: sessoes } = await sb
+  let query = sb
     .from("lj_sessoes_contagem")
     .select(`
       id, tipo, status, criado_em, iniciada_em, finalizada_em,
       loja:lj_lojas(codigo, nome)
     `)
     .order("criado_em", { ascending: false });
+  if (scope.tipo === "loja") {
+    query = query.eq("loja_id", scope.loja_id);
+  }
+  const { data: sessoes } = await query;
 
   // Para cada sessão, contar itens e progresso (em uma query)
   const ids = (sessoes ?? []).map((s) => s.id as string);

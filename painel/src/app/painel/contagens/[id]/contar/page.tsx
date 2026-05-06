@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 import { ContarUI, type ItemContado } from "./ContarUI";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function ContarPage({
   const { data: sessao } = await sb
     .from("lj_sessoes_contagem")
     .select(`
-      id, status, tipo,
+      id, status, tipo, loja_id,
       loja:lj_lojas(codigo, nome)
     `)
     .eq("id", id)
@@ -24,6 +25,8 @@ export default async function ContarPage({
   if (!sessao) notFound();
 
   const loja = sessao.loja as unknown as { codigo: string; nome: string } | null;
+  const scope = await getLojaScope();
+  if (scope.tipo === "loja" && (sessao.loja_id as string) !== scope.loja_id) notFound();
   const status = sessao.status as string;
 
   // Carrega itens com qtd_contada > 0

@@ -288,6 +288,8 @@ export type ImportCSVResult =
 export async function importCSVCompleto(input: {
   arquivo_nome: string;
   content: Buffer | string;
+  /** Se setado, restringe import as lojas com esse codigo (usuario de loja). */
+  loja_codigo?: string | null;
 }): Promise<ImportCSVResult> {
   let registros: ParsedRow[];
   let periodo: { inicio: string; fim: string } | null;
@@ -325,10 +327,17 @@ export async function importCSVCompleto(input: {
   const lojasNoCSV = new Set(registros.map((r) => r.loja_pdv));
   const lojasMapeadas: { codigo: string; nome: string }[] = [];
   const lojasNaoMapeadas: string[] = [];
+  const restrictTo = input.loja_codigo?.toUpperCase() ?? null;
   for (const nomePdv of lojasNoCSV) {
     const m = pdvToLoja.get(nomePdv);
-    if (m) lojasMapeadas.push(m);
-    else lojasNaoMapeadas.push(nomePdv);
+    if (m) {
+      if (!restrictTo || m.codigo.toUpperCase() === restrictTo) {
+        lojasMapeadas.push(m);
+      }
+      // se restritro e nao bate: ignora silenciosamente (loja fora do escopo do user)
+    } else {
+      lojasNaoMapeadas.push(nomePdv);
+    }
   }
 
   // Faz 1 import por loja mapeada

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 
 export type NovaContagemState = { error: string } | null;
 
@@ -61,6 +62,12 @@ export async function criarContagem(
 
   if (!loja_codigo || !tipo) return { error: "Selecione a loja e o tipo." };
   if (tipo !== "geral" && tipo !== "amostragem") return { error: "Tipo inválido." };
+
+  // Usuario de loja so cria pra propria
+  const scope = await getLojaScope();
+  if (scope.tipo === "loja" && scope.codigo.toUpperCase() !== loja_codigo.toUpperCase()) {
+    return { error: "Você não tem permissão para essa loja." };
+  }
 
   const sb = getSupabase();
   const { data: lojaRow } = await sb

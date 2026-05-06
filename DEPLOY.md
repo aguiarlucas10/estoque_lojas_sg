@@ -22,8 +22,22 @@ Adicione as 4 variáveis abaixo em **Environment Variables** antes de clicar em 
 |---|---|---|
 | `SUPABASE_URL` | `https://fsfqnshkfwnfeswwdmxg.supabase.co` | Mesmo do `.env.local` |
 | `SUPABASE_SERVICE_ROLE_KEY` | `sb_secret_…` | Secret key do Supabase. **Não vaza no client** — usado só nos Server Components/Actions. |
-| `BASIC_AUTH_USER` | `estoque` (ou outro de sua escolha) | Login HTTP Basic |
-| `BASIC_AUTH_PASS` | `<senha forte>` | Mín. 16 caracteres, mistura. Salve num gerenciador. |
+| `BASIC_AUTH_USERS` | `bal:senhaBAL:BAL,moo:senhaMOO:MOO,gar:senhaGAR:GAR,neu:senhaNEU:NEU,admin:senhaAdmin:*` | **Multi-loja**. Ver formato abaixo. |
+
+### Formato de `BASIC_AUTH_USERS`
+
+Lista separada por vírgulas, cada entrada é `usuário:senha:código_da_loja`:
+
+| Código | Significado |
+|---|---|
+| `BAL` / `MOO` / `GAR` / `NEU` | Usuário só vê dados da própria loja. TopNav mostra a loja logada; `/` redireciona pro estoque dela; imports e contagens filtrados; tela de criação de contagem com loja travada; upload de CSV processa só a loja do user. |
+| `*` | Admin — vê e atua em todas as lojas. |
+
+⚠️ Restrições do formato: **senhas não podem conter `:` nem `,`**. Use letras, números e símbolos como `!@#$%&*-_+=`.
+
+Exemplo conservador: gerar 5 senhas de 20 caracteres em [1password.com/password-generator](https://1password.com/password-generator/) e montar a string.
+
+> Compat: se `BASIC_AUTH_USERS` não estiver setado mas houver `BASIC_AUTH_USER` + `BASIC_AUTH_PASS`, esse usuário vira admin (caminho legado).
 
 > Em todas, deixe os 3 ambientes marcados (Production, Preview, Development).
 

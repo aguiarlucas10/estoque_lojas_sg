@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 import { NovaContagemForm } from "./NovaContagemForm";
 
 export const dynamic = "force-dynamic";
 
 export default async function NovaContagemPage() {
+  const scope = await getLojaScope();
   const sb = getSupabase();
   const [lojasRes, prodsRes] = await Promise.all([
     sb.from("lj_lojas").select("codigo, nome").eq("ativa", true).order("codigo"),
@@ -13,6 +15,13 @@ export default async function NovaContagemPage() {
   const categorias = Array.from(
     new Set((prodsRes.data ?? []).map((p) => p.categoria as string).filter(Boolean)),
   ).sort();
+  // Usuario de loja so cria pra propria loja
+  const lojas = (lojasRes.data ?? []) as { codigo: string; nome: string }[];
+  const lojasFiltradas =
+    scope.tipo === "loja"
+      ? lojas.filter((l) => l.codigo === scope.codigo)
+      : lojas;
+  const lojaFixa = scope.tipo === "loja" ? scope.codigo : null;
 
   return (
     <div className="mx-auto max-w-[760px] px-6 py-12">
@@ -32,8 +41,9 @@ export default async function NovaContagemPage() {
       </p>
 
       <NovaContagemForm
-        lojas={(lojasRes.data ?? []) as { codigo: string; nome: string }[]}
+        lojas={lojasFiltradas}
         categorias={categorias}
+        lojaFixa={lojaFixa}
       />
     </div>
   );

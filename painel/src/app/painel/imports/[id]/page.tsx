@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 import { OrfaoResolver, type Orfao } from "./OrfaoResolver";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +40,8 @@ export default async function ImportDetailsPage({
   if (!imp) notFound();
 
   const loja = imp.loja as unknown as { id: string; codigo: string; nome: string } | null;
+  const scope = await getLojaScope();
+  if (scope.tipo === "loja" && loja?.id !== scope.loja_id) notFound();
 
   const { data: linhas } = await sb
     .from("lj_imports_vendas_linhas")

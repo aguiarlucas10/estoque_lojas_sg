@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 import { SessaoUI, type ItemSessao } from "./SessaoUI";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +57,8 @@ export default async function SessaoPage({
   if (!sessao) notFound();
 
   const loja = sessao.loja as unknown as { id: string; codigo: string; nome: string } | null;
+  const scope = await getLojaScope();
+  if (scope.tipo === "loja" && loja?.id !== scope.loja_id) notFound();
   const status = sessao.status as ItemSessao["status"] extends never
     ? never
     : "aberta" | "em_contagem" | "em_revisao" | "finalizada" | "cancelada";

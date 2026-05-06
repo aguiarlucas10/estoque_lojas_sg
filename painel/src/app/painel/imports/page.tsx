@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -17,8 +18,9 @@ const statusLabel: Record<string, { label: string; tone: "ok" | "pending" | "war
 };
 
 export default async function ImportsPage() {
+  const scope = await getLojaScope();
   const sb = getSupabase();
-  const { data: imports } = await sb
+  let query = sb
     .from("lj_imports_vendas")
     .select(`
       id, status, periodo_inicio, periodo_fim, importado_em,
@@ -27,6 +29,10 @@ export default async function ImportsPage() {
       loja:lj_lojas(codigo, nome)
     `)
     .order("importado_em", { ascending: false });
+  if (scope.tipo === "loja") {
+    query = query.eq("loja_id", scope.loja_id);
+  }
+  const { data: imports } = await query;
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-12">

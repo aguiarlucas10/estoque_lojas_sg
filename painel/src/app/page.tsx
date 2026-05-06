@@ -1,11 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { GradientOrb } from "@/components/GradientOrb";
 import { TopNav } from "@/components/TopNav";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
+  const scope = await getLojaScope();
+  // Usuario de loja: vai direto pro estoque da loja dele
+  if (scope.tipo === "loja") {
+    redirect(`/painel/estoque/${scope.codigo}`);
+  }
+
   const supabase = getSupabase();
   const { data: lojas } = await supabase
     .from("lj_lojas")

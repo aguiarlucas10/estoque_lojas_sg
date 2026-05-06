@@ -1,5 +1,6 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
+import { getLojaScope } from "@/lib/scope";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,11 @@ export default async function EstoqueLojaPage({
   params: Promise<{ loja: string }>;
 }) {
   const { loja: codigo } = await params;
+  const scope = await getLojaScope();
+  // Usuario de loja so acessa a propria — redirect se URL diverge
+  if (scope.tipo === "loja" && scope.codigo.toUpperCase() !== codigo.toUpperCase()) {
+    redirect(`/painel/estoque/${scope.codigo}`);
+  }
   const supabase = getSupabase();
 
   const { data: lojaRow } = await supabase

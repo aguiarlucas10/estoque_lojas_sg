@@ -1,6 +1,11 @@
 import Link from "next/link";
+import { getLojaScope } from "@/lib/scope";
 
-export function TopNav() {
+export async function TopNav() {
+  const scope = await getLojaScope();
+  const estoqueHref =
+    scope.tipo === "loja" ? `/painel/estoque/${scope.codigo}` : "/painel/estoque/BAL";
+
   return (
     <header className="bg-canvas border-b border-hairline">
       <div className="mx-auto max-w-[1200px] h-16 px-6 flex items-center justify-between">
@@ -9,7 +14,7 @@ export function TopNav() {
           <span className="caption-uppercase text-muted">Estoque</span>
         </Link>
         <nav className="flex items-center gap-7 text-[15px] font-medium">
-          <Link href="/painel/estoque/BAL" className="text-ink hover:text-body">
+          <Link href={estoqueHref} className="text-ink hover:text-body">
             Estoque
           </Link>
           <Link href="/painel/imports" className="text-muted hover:text-ink">
@@ -19,6 +24,16 @@ export function TopNav() {
             Contagens
           </Link>
         </nav>
+        <div className="flex items-center gap-3">
+          {scope.tipo === "loja" ? (
+            <span className="caption-uppercase text-muted">
+              <strong className="text-ink not-italic font-semibold">{scope.codigo}</strong>{" "}
+              · {scope.nome}
+            </span>
+          ) : (
+            <span className="caption-uppercase text-muted">Admin · todas as lojas</span>
+          )}
+        </div>
       </div>
     </header>
   );

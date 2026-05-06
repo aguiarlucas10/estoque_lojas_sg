@@ -8,9 +8,11 @@ import { criarContagem, type NovaContagemState } from "./actions";
 export function NovaContagemForm({
   lojas,
   categorias,
+  lojaFixa,
 }: {
   lojas: { codigo: string; nome: string }[];
   categorias: string[];
+  lojaFixa: string | null;
 }) {
   const [state, formAction] = useActionState<NovaContagemState, FormData>(
     criarContagem,
@@ -22,19 +24,28 @@ export function NovaContagemForm({
   return (
     <form action={formAction} className="space-y-6">
       <Field label="Loja">
-        <select
-          name="loja_codigo"
-          required
-          defaultValue=""
-          className="w-full bg-surface-card border border-hairline-strong rounded-md px-4 py-3 text-[15px] text-ink focus:border-ink focus:outline-none"
-        >
-          <option value="" disabled>Selecione…</option>
-          {lojas.map((l) => (
-            <option key={l.codigo} value={l.codigo}>
-              {l.codigo} — {l.nome}
-            </option>
-          ))}
-        </select>
+        {lojaFixa ? (
+          <>
+            <input type="hidden" name="loja_codigo" value={lojaFixa} />
+            <div className="w-full bg-canvas-soft border border-hairline rounded-md px-4 py-3 text-[15px] text-ink">
+              {lojas[0]?.codigo} — {lojas[0]?.nome}
+            </div>
+          </>
+        ) : (
+          <select
+            name="loja_codigo"
+            required
+            defaultValue=""
+            className="w-full bg-surface-card border border-hairline-strong rounded-md px-4 py-3 text-[15px] text-ink focus:border-ink focus:outline-none"
+          >
+            <option value="" disabled>Selecione…</option>
+            {lojas.map((l) => (
+              <option key={l.codigo} value={l.codigo}>
+                {l.codigo} — {l.nome}
+              </option>
+            ))}
+          </select>
+        )}
       </Field>
 
       <Field label="Tipo de contagem">
