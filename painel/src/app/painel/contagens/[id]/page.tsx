@@ -63,11 +63,22 @@ export default async function SessaoPage({
     ? never
     : "aberta" | "em_contagem" | "em_revisao" | "finalizada" | "cancelada";
 
-  // Carrega itens da sessão + dados de produto
+  // Total de itens no escopo (count agregado, evita trazer 2k+ linhas)
+  const { count: totalEscopoCount } = await sb
+    .from("lj_sessoes_itens")
+    .select("*", { count: "exact", head: true })
+    .eq("sessao_id", id);
+  const totalEscopo = totalEscopoCount ?? 0;
+
+  // Carrega APENAS os itens efetivamente contados (qtd_contada > 0).
+  // Os demais (não bipados) não aparecem em lugar nenhum da UI — saldo
+  // deles no sistema fica preservado.
   const { data: itensRaw } = await sb
     .from("lj_sessoes_itens")
     .select("produto_id, qtd_teorica, qtd_contada, diferenca, valor_diferenca, status")
-    .eq("sessao_id", id);
+    .eq("sessao_id", id)
+    .gt("qtd_contada", 0)
+    .limit(5000);
 
   const ids = (itensRaw ?? []).map((i) => i.produto_id as string);
   let prodMap = new Map<string, { sku: string; nome: string; categoria: string | null; custo: number | null }>();
@@ -89,7 +100,9 @@ export default async function SessaoPage({
     );
   }
 
-  const todosItens: ItemSessao[] = (itensRaw ?? []).map((r) => {
+  // itens contém apenas SKUs efetivamente bipados (qtd_contada > 0).
+  // SKUs do escopo não bipados ficam fora da UI; saldo preservado.
+  const itens: ItemSessao[] = (itensRaw ?? []).map((r) => {
     const p = prodMap.get(r.produto_id as string);
     return {
       produto_id: r.produto_id as string,
@@ -104,23 +117,17 @@ export default async function SessaoPage({
       status: r.status as ItemSessao["status"],
     };
   });
-
-  // Apos encerrar a contagem, foca somente nos SKUs efetivamente contados
-  // (qtd_contada > 0). SKUs do escopo que nao foram bipados ficam ignorados:
-  // o saldo deles no sistema nao eh alterado pela sessao.
-  const ehFasePosContagem =
-    sessao.status === "em_revisao" ||
-    sessao.status === "finalizada" ||
-    sessao.status === "cancelada";
-  const itens = ehFasePosContagem
-    ? todosItens.filter((i) => i.qtd_contada > 0)
-    : todosItens;
   itens.sort((a, b) => {
     if (Math.abs(b.diferenca) !== Math.abs(a.diferenca)) {
       return Math.abs(b.diferenca) - Math.abs(a.diferenca);
     }
     return a.sku.localeCompare(b.sku);
   });
+
+  const ehFasePosContagem =
+    sessao.status === "em_revisao" ||
+    sessao.status === "finalizada" ||
+    sessao.status === "cancelada";
 
   const totalDiferenca = itens.reduce((acc, i) => acc + Math.abs(i.diferenca), 0);
   const valorAjuste = itens.reduce(
@@ -169,13 +176,9 @@ export default async function SessaoPage({
 
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
         <Stat
-          label={ehFasePosContagem ? "Itens contados" : "Itens no escopo"}
+          label="Itens contados"
           value={itens.length.toLocaleString("pt-BR")}
-          hint={
-            ehFasePosContagem && todosItens.length !== itens.length
-              ? `de ${todosItens.length.toLocaleString("pt-BR")} no escopo`
-              : undefined
-          }
+          hint={`de ${totalEscopo.toLocaleString("pt-BR")} no escopo`}
         />
         <Stat
           label="Soma diferenças"
@@ -199,7 +202,12 @@ export default async function SessaoPage({
         />
       </div>
 
-      <SessaoUI sessao_id={id} status={status} itens={itens} />
+      <SessaoUI
+        sessao_id={id}
+        status={status}
+        itens={itens}
+        totalEscopo={totalEscopo}
+      />
     </div>
   );
 }

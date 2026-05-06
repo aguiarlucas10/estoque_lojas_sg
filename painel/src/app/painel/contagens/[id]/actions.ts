@@ -85,19 +85,38 @@ export async function definirStatusItemAction(
   return { ok: true };
 }
 
-export async function aprovarTodosAction(sessao_id: string): Promise<Result> {
+/**
+ * Faz balanço da sessão: aprova todos os itens contados (exceto rejeitados
+ * pelo admin) e aplica como movimentos no ledger. Único ponto que altera
+ * o estoque a partir de uma contagem.
+ */
+export async function fazerBalancoAction(
+  sessao_id: string,
+): Promise<{ ok: true; aprovados: number; movimentos: number } | { ok: false; error: string }> {
   const sb = getSupabase();
-  // Aprova somente itens efetivamente contados (qtd_contada > 0).
-  // SKUs do escopo nao bipados ficam pendentes — nao geram movimento.
-  const { error } = await sb
+
+  // 1. Aprova todos com qtd_contada > 0 e que não foram rejeitados pelo admin
+  const { data: aprovadosData, error: aprErr } = await sb
     .from("lj_sessoes_itens")
     .update({ status: "aprovada", aprovado_em: new Date().toISOString() })
     .eq("sessao_id", sessao_id)
     .neq("status", "rejeitada")
-    .gt("qtd_contada", 0);
+    .gt("qtd_contada", 0)
+    .select("produto_id");
+  if (aprErr) return { ok: false, error: `Erro aprovando itens: ${aprErr.message}` };
+  const aprovados = aprovadosData?.length ?? 0;
+
+  // 2. Aplica como movimentos contagem_validada
+  const { data, error } = await sb.rpc("aplicar_contagem_validada", {
+    p_sessao_id: sessao_id,
+  });
   if (error) return { ok: false, error: error.message };
+
+  await sb.rpc("refresh_estoque_atual");
   revalidatePath(`/painel/contagens/${sessao_id}`);
-  return { ok: true };
+  revalidatePath("/painel/contagens");
+  revalidatePath("/painel/estoque", "layout");
+  return { ok: true, aprovados, movimentos: Number(data) || 0 };
 }
 
 export type BipResult =
@@ -233,31 +252,7 @@ export async function editarQuantidadeAction(
   return { ok: true };
 }
 
-export async function finalizarContagemAction(
-  sessao_id: string,
-): Promise<{ ok: true; movimentos: number } | { ok: false; error: string }> {
-  const sb = getSupabase();
-  // Verifica pendencias somente entre os itens efetivamente contados.
-  // SKUs nao bipados nao precisam ser aprovados/rejeitados.
-  const { count } = await sb
-    .from("lj_sessoes_itens")
-    .select("*", { count: "exact", head: true })
-    .eq("sessao_id", sessao_id)
-    .in("status", ["pendente", "recontar"])
-    .gt("qtd_contada", 0);
-  if ((count ?? 0) > 0) {
-    return {
-      ok: false,
-      error: `Existem ${count} item(ns) contado(s) ainda pendentes ou marcados pra recontagem. Aprove ou rejeite todos antes de finalizar.`,
-    };
-  }
-  const { data, error } = await sb.rpc("aplicar_contagem_validada", {
-    p_sessao_id: sessao_id,
-  });
-  if (error) return { ok: false, error: error.message };
-  await sb.rpc("refresh_estoque_atual");
-  revalidatePath(`/painel/contagens/${sessao_id}`);
-  revalidatePath("/painel/contagens");
-  revalidatePath("/painel/estoque", "layout");
-  return { ok: true, movimentos: Number(data) || 0 };
-}
+// finalizarContagemAction foi substituída por fazerBalancoAction (acima).
+// O comportamento é equivalente: aprovar todos os contados não-rejeitados
+// e aplicar como movimentos. fazerBalancoAction não trava mais com itens
+// pendentes — assume aprovação implícita do admin ao clicar.

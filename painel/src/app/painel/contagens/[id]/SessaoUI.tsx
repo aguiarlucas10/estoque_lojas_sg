@@ -9,8 +9,7 @@ import {
   reabrirContagemAction,
   cancelarContagemAction,
   definirStatusItemAction,
-  aprovarTodosAction,
-  finalizarContagemAction,
+  fazerBalancoAction,
 } from "./actions";
 
 export type ItemSessao = {
@@ -30,6 +29,7 @@ type Props = {
   sessao_id: string;
   status: "aberta" | "em_contagem" | "em_revisao" | "finalizada" | "cancelada";
   itens: ItemSessao[];
+  totalEscopo: number;
 };
 
 const moedaBR = new Intl.NumberFormat("pt-BR", {
@@ -37,7 +37,7 @@ const moedaBR = new Intl.NumberFormat("pt-BR", {
   currency: "BRL",
 });
 
-export function SessaoUI({ sessao_id, status, itens }: Props) {
+export function SessaoUI({ sessao_id, status, itens, totalEscopo }: Props) {
   const [pending, startTransition] = useTransition();
   const [erro, setErro] = useState<string | null>(null);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -47,11 +47,15 @@ export function SessaoUI({ sessao_id, status, itens }: Props) {
     setErro(null);
     setAviso(null);
     startTransition(async () => {
-      const r = (await fn()) as { ok: boolean; error?: string; movimentos?: number };
+      const r = (await fn()) as { ok: boolean; error?: string; movimentos?: number; aprovados?: number };
       if (r.ok === false) {
         setErro(r.error ?? "Erro");
       } else if ("movimentos" in r) {
-        setAviso(`Sessão finalizada — ${r.movimentos} movimento(s) gerado(s).`);
+        const aprov = r.aprovados ?? 0;
+        const movs = r.movimentos ?? 0;
+        setAviso(
+          `Balanço aplicado — ${aprov} item(ns) aprovado(s), ${movs} movimento(s) gerado(s) no estoque.`,
+        );
         router.refresh();
       } else {
         router.refresh();
@@ -68,8 +72,7 @@ export function SessaoUI({ sessao_id, status, itens }: Props) {
         onEncerrar={() => withAction(() => encerrarContagemAction(sessao_id))}
         onReabrir={() => withAction(() => reabrirContagemAction(sessao_id))}
         onCancelar={() => withAction(() => cancelarContagemAction(sessao_id))}
-        onAprovarTodos={() => withAction(() => aprovarTodosAction(sessao_id))}
-        onFinalizar={() => withAction(() => finalizarContagemAction(sessao_id))}
+        onFazerBalanco={() => withAction(() => fazerBalancoAction(sessao_id))}
       />
 
       {erro && (
@@ -84,8 +87,14 @@ export function SessaoUI({ sessao_id, status, itens }: Props) {
       )}
 
       <div className="mt-6">
-        {status === "aberta" && <AbertaPanel itens={itens} />}
-        {status === "em_contagem" && <EmContagemPanel sessao_id={sessao_id} itens={itens} />}
+        {status === "aberta" && <AbertaPanel totalEscopo={totalEscopo} />}
+        {status === "em_contagem" && (
+          <EmContagemPanel
+            sessao_id={sessao_id}
+            itens={itens}
+            totalEscopo={totalEscopo}
+          />
+        )}
         {(status === "em_revisao" || status === "finalizada" || status === "cancelada") && (
           <RevisaoTable
             sessao_id={sessao_id}
@@ -100,18 +109,17 @@ export function SessaoUI({ sessao_id, status, itens }: Props) {
   );
 }
 
-function AbertaPanel({ itens }: { itens: ItemSessao[] }) {
-  const totalTeorica = itens.reduce((acc, i) => acc + i.qtd_teorica, 0);
-  const positivos = itens.filter((i) => i.qtd_teorica > 0).length;
+function AbertaPanel({ totalEscopo }: { totalEscopo: number }) {
   return (
     <div className="bg-surface-card border border-hairline rounded-xl p-6">
       <h2 className="text-[15px] font-medium text-ink mb-3">Escopo congelado</h2>
       <p className="text-[14px] text-body mb-4 leading-[1.5]">
-        {itens.length.toLocaleString("pt-BR")} SKUs no escopo · {positivos.toLocaleString("pt-BR")}{" "}
-        com saldo positivo · soma teórica {totalTeorica.toLocaleString("pt-BR")} unidades.
+        {totalEscopo.toLocaleString("pt-BR")} SKUs no escopo. Ao iniciar, a tela de
+        bipagem fica disponível para o contador.
       </p>
       <p className="text-[13px] text-muted">
-        Quando iniciar, a tela de bipagem fica disponível para o contador.
+        A contagem não altera o estoque — só o admin pode aplicar via &quot;Fazer
+        balanço&quot; no fim.
       </p>
     </div>
   );
@@ -120,14 +128,14 @@ function AbertaPanel({ itens }: { itens: ItemSessao[] }) {
 function EmContagemPanel({
   sessao_id,
   itens,
+  totalEscopo,
 }: {
   sessao_id: string;
   itens: ItemSessao[];
+  totalEscopo: number;
 }) {
-  const totalSkus = itens.length;
-  const skusBipados = itens.filter((i) => i.qtd_contada > 0).length;
+  const skusBipados = itens.length; // a query já trouxe só os bipados
   const totalUnidades = itens.reduce((acc, i) => acc + i.qtd_contada, 0);
-  const pct = totalSkus > 0 ? Math.round((skusBipados / totalSkus) * 100) : 0;
   return (
     <div className="bg-surface-card border border-hairline rounded-xl p-6">
       <div className="flex items-start justify-between gap-6 mb-5">
@@ -145,17 +153,10 @@ function EmContagemPanel({
         </Link>
       </div>
 
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-3 gap-4">
         <Counter label="SKUs bipados" value={skusBipados} />
-        <Counter label="No escopo" value={totalSkus} />
+        <Counter label="No escopo" value={totalEscopo} />
         <Counter label="Unidades contadas" value={totalUnidades} tone="ok" />
-      </div>
-
-      <div className="flex items-center gap-3">
-        <div className="flex-1 h-1.5 bg-surface-strong rounded-pill overflow-hidden">
-          <div className="h-full bg-ink rounded-pill transition-all" style={{ width: `${pct}%` }} />
-        </div>
-        <span className="text-[13px] text-muted whitespace-nowrap">{pct}%</span>
       </div>
     </div>
   );
@@ -168,8 +169,7 @@ function ActionsBar({
   onEncerrar,
   onReabrir,
   onCancelar,
-  onAprovarTodos,
-  onFinalizar,
+  onFazerBalanco,
 }: {
   status: Props["status"];
   pending: boolean;
@@ -177,8 +177,7 @@ function ActionsBar({
   onEncerrar: () => void;
   onReabrir: () => void;
   onCancelar: () => void;
-  onAprovarTodos: () => void;
-  onFinalizar: () => void;
+  onFazerBalanco: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -196,9 +195,12 @@ function ActionsBar({
       )}
       {status === "em_revisao" && (
         <>
-          <PrimaryBtn onClick={onFinalizar} disabled={pending}>Finalizar e aplicar</PrimaryBtn>
-          <SecondaryBtn onClick={onAprovarTodos} disabled={pending}>Aprovar todos</SecondaryBtn>
-          <SecondaryBtn onClick={onReabrir} disabled={pending}>Voltar para contagem</SecondaryBtn>
+          <PrimaryBtn onClick={onFazerBalanco} disabled={pending}>
+            Fazer balanço — aplicar no estoque
+          </PrimaryBtn>
+          <SecondaryBtn onClick={onReabrir} disabled={pending}>
+            Voltar para contagem
+          </SecondaryBtn>
         </>
       )}
       {(status === "finalizada" || status === "cancelada") && (
