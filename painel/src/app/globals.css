@@ -1,0 +1,97 @@
+@import "tailwindcss";
+
+@theme {
+  /* Surface */
+  --color-canvas: #f5f5f5;
+  --color-canvas-soft: #fafafa;
+  --color-canvas-deep: #0c0a09;
+  --color-surface-card: #ffffff;
+  --color-surface-strong: #f0efed;
+  --color-surface-dark: #0c0a09;
+  --color-surface-dark-elevated: #1c1917;
+
+  /* Hairlines */
+  --color-hairline: #e7e5e4;
+  --color-hairline-soft: #f0efed;
+  --color-hairline-strong: #d6d3d1;
+
+  /* Text */
+  --color-ink: #0c0a09;
+  --color-body: #4e4e4e;
+  --color-body-strong: #292524;
+  --color-muted: #777169;
+  --color-muted-soft: #a8a29e;
+  --color-on-primary: #ffffff;
+  --color-on-dark: #ffffff;
+  --color-on-dark-soft: #a8a29e;
+
+  /* Brand action */
+  --color-primary: #292524;
+  --color-primary-active: #0c0a09;
+
+  /* Atmospheric gradient stops */
+  --color-gradient-mint: #a7e5d3;
+  --color-gradient-peach: #f4c5a8;
+  --color-gradient-lavender: #c8b8e0;
+  --color-gradient-sky: #a8c8e8;
+  --color-gradient-rose: #e8b8c4;
+
+  /* Semantic */
+  --color-success: #16a34a;
+  --color-error: #dc2626;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-xxl: 24px;
+  --radius-pill: 9999px;
+
+  /* Typography stacks */
+  --font-display: var(--font-display-serif), "Times New Roman", serif;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+}
+
+html, body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+/* Editorial body tracking — subtle letter-spacing */
+body {
+  letter-spacing: 0.16px;
+}
+
+/* Display headings stay at 300 weight, slightly tighter */
+.display {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: -0.32px;
+}
+
+.display-lg {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 2.25rem;       /* 36px */
+  line-height: 1.17;
+  letter-spacing: -0.36px;
+}
+
+.display-xl {
+  font-family: var(--font-display);
+  font-weight: 300;
+  font-size: 3rem;          /* 48px */
+  line-height: 1.08;
+  letter-spacing: -0.96px;
+}
+
+.caption-uppercase {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.4;
+  letter-spacing: 0.96px;
+  text-transform: uppercase;
+}

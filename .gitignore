@@ -1,0 +1,47 @@
+# Env / segredos
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Editor
+.vscode/
+.idea/
+
+# Dados sensiveis / gerados
+data/vendas_parseadas.json
+data/aliases_propostos.csv
+"Info Cadastro.csv"
+"pdv analitico_.csv"
+Info\ Cadastro.csv
+pdv\ analitico_.csv
+
+# Material externo de referencia
+claude-code-best-practice-main/
+
+# Next.js (em painel/)
+painel/.next/
+painel/out/
+painel/node_modules/
+painel/next-env.d.ts
+painel/.vercel/
+painel/*.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
