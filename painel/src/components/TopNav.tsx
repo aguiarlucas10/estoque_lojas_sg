@@ -24,7 +24,7 @@ export async function TopNav() {
             Contagens
           </Link>
         </nav>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           {scope.tipo === "loja" ? (
             <span className="caption-uppercase text-muted">
               <strong className="text-ink not-italic font-semibold">{scope.codigo}</strong>{" "}
@@ -33,6 +33,13 @@ export async function TopNav() {
           ) : (
             <span className="caption-uppercase text-muted">Admin · todas as lojas</span>
           )}
+          <a
+            href="/logout"
+            className="caption-uppercase text-muted hover:text-ink"
+            title="Encerrar sessão"
+          >
+            Sair
+          </a>
         </div>
       </div>
     </header>
