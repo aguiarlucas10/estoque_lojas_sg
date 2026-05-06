@@ -159,7 +159,10 @@ export async function biparAction(
     return { ok: false, error: "Sessão não está em contagem." };
   }
 
-  // Resolve produto: EAN -> SKU -> alias
+  // Resolve produto: EAN -> SKU -> alias.
+  // Filtra ativo=true e usa limit(1) em vez de maybeSingle() pra ser robusto
+  // contra duplicação de EAN/SKU no cadastro (que aconteceu por causa de
+  // variantes -P15, -SHOPEE, etc. que compartilham o mesmo EAN).
   type ProdutoLite = { id: string; sku: string; nome: string };
   let produto: ProdutoLite | null = null;
 
@@ -167,26 +170,34 @@ export async function biparAction(
     .from("lj_produtos")
     .select("id, sku, nome")
     .eq("ean", codigoLimpo)
-    .maybeSingle();
-  if (byEan) {
-    produto = byEan as unknown as ProdutoLite;
+    .eq("ativo", true)
+    .limit(1);
+  if (byEan && byEan.length > 0) {
+    produto = byEan[0] as unknown as ProdutoLite;
   } else {
     const { data: bySku } = await sb
       .from("lj_produtos")
       .select("id, sku, nome")
       .eq("sku", codigoLimpo)
-      .maybeSingle();
-    if (bySku) {
-      produto = bySku as unknown as ProdutoLite;
+      .eq("ativo", true)
+      .limit(1);
+    if (bySku && bySku.length > 0) {
+      produto = bySku[0] as unknown as ProdutoLite;
     } else {
       const { data: byAlias } = await sb
         .from("lj_sku_aliases")
-        .select("produto_id, lj_produtos(id, sku, nome)")
+        .select("produto_id, lj_produtos(id, sku, nome, ativo)")
         .eq("codigo_alias", codigoLimpo)
-        .maybeSingle();
-      if (byAlias) {
-        const p = byAlias.lj_produtos as unknown as ProdutoLite | null;
-        if (p) produto = p;
+        .limit(5);
+      if (byAlias && byAlias.length > 0) {
+        // Pega o primeiro alias cujo produto está ativo
+        for (const a of byAlias) {
+          const p = a.lj_produtos as unknown as { id: string; sku: string; nome: string; ativo: boolean } | null;
+          if (p && p.ativo) {
+            produto = { id: p.id, sku: p.sku, nome: p.nome };
+            break;
+          }
+        }
       }
     }
   }
