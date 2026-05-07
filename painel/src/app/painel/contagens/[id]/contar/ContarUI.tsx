@@ -150,7 +150,6 @@ function BipForm({
       </div>
       <p className="mt-3 text-[12px] text-muted">
         Apenas EAN é aceito — bipe com leitor USB. Cada bipagem soma +1 unidade.
-        Para corrigir quantidade, use &quot;Editar&quot; na lista abaixo.
       </p>
     </form>
   );
