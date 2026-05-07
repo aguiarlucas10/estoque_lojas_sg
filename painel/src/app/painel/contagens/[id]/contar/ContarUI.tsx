@@ -48,9 +48,21 @@ export function ContarUI({
   });
 
   function bipar(codigo: string) {
-    if (!codigo.trim()) return;
+    const limpo = codigo.trim();
+    if (!limpo) return;
+    // Apenas EAN (dígitos). SKUs alfanuméricos são rejeitados na entrada
+    // — o objetivo é que toda contagem venha do leitor de código de barras.
+    // Edição de quantidade após bipagem continua disponível na lista.
+    if (!/^\d+$/.test(limpo)) {
+      setFeedback({
+        tipo: "erro",
+        msg: "Use o leitor de código de barras (EAN). Digitação de SKU não é permitida — apenas números.",
+      });
+      setTimeout(() => inputRef.current?.focus(), 0);
+      return;
+    }
     startTransition(async () => {
-      const r: BipResult = await biparAction(sessao_id, codigo);
+      const r: BipResult = await biparAction(sessao_id, limpo);
       if (r.ok) {
         setFeedback({ tipo: "ok", sku: r.sku, nome: r.nome, qtd: r.qtd_contada });
       } else {
@@ -112,7 +124,7 @@ function BipForm({
       className="bg-surface-card border border-hairline rounded-xl p-6"
     >
       <label htmlFor="codigo" className="caption-uppercase text-muted block mb-3">
-        Bipar código
+        Bipar código de barras (EAN)
       </label>
       <div className="flex gap-3">
         <input
@@ -122,7 +134,9 @@ function BipForm({
           type="text"
           autoFocus
           autoComplete="off"
-          placeholder="Bipa ou digita SKU / EAN…"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          placeholder="Use o leitor de código de barras…"
           disabled={pending}
           className="flex-1 bg-canvas-soft border border-hairline-strong rounded-md px-4 py-3 text-[16px] text-ink placeholder:text-muted focus:border-ink focus:bg-surface-card focus:outline-none font-mono"
         />
@@ -135,7 +149,8 @@ function BipForm({
         </button>
       </div>
       <p className="mt-3 text-[12px] text-muted">
-        Leitor USB ou digite e pressione Enter. Cada bipagem soma +1 unidade.
+        Apenas EAN é aceito — bipe com leitor USB. Cada bipagem soma +1 unidade.
+        Para corrigir quantidade, use &quot;Editar&quot; na lista abaixo.
       </p>
     </form>
   );
