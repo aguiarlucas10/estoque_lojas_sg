@@ -83,7 +83,11 @@ export default async function ContarPage({
           Volte para a tela da sessão para iniciar ou retomar.
         </div>
       ) : (
-        <ContarUI sessao_id={id} itensContados={itens} />
+        <ContarUI
+          sessao_id={id}
+          itensContados={itens}
+          isAdmin={scope.tipo === "admin"}
+        />
       )}
     </div>
   );

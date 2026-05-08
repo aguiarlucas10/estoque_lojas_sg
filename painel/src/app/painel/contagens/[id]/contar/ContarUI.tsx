@@ -18,9 +18,11 @@ export type ItemContado = {
 export function ContarUI({
   sessao_id,
   itensContados,
+  isAdmin,
 }: {
   sessao_id: string;
   itensContados: ItemContado[];
+  isAdmin: boolean;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -96,8 +98,9 @@ export function ContarUI({
         onSubmit={bipar}
         pending={pending}
         inputRef={inputRef}
-        permitirSku={permitirSku}
+        permitirSku={isAdmin && permitirSku}
         onTogglePermitirSku={(v) => setPermitirSku(v)}
+        mostrarToggle={isAdmin}
       />
 
       {feedback && (
@@ -119,12 +122,14 @@ function BipForm({
   inputRef,
   permitirSku,
   onTogglePermitirSku,
+  mostrarToggle,
 }: {
   onSubmit: (codigo: string) => void;
   pending: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
   permitirSku: boolean;
   onTogglePermitirSku: (v: boolean) => void;
+  mostrarToggle: boolean;
 }) {
   return (
     <form
@@ -141,15 +146,17 @@ function BipForm({
         <label htmlFor="codigo" className="caption-uppercase text-muted">
           {permitirSku ? "Bipar código ou SKU" : "Bipar código de barras (EAN)"}
         </label>
-        <label className="inline-flex items-center gap-2 text-[12px] text-muted cursor-pointer select-none">
-          <input
-            type="checkbox"
-            checked={permitirSku}
-            onChange={(e) => onTogglePermitirSku(e.target.checked)}
-            className="accent-ink h-3.5 w-3.5"
-          />
-          Aceitar SKU
-        </label>
+        {mostrarToggle && (
+          <label className="inline-flex items-center gap-2 text-[12px] text-muted cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={permitirSku}
+              onChange={(e) => onTogglePermitirSku(e.target.checked)}
+              className="accent-ink h-3.5 w-3.5"
+            />
+            Aceitar SKU
+          </label>
+        )}
       </div>
       <div className="flex gap-3">
         <input
