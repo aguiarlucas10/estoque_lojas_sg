@@ -30,6 +30,10 @@ export function ContarUI({
     | null
   >(null);
   const [editando, setEditando] = useState<string | null>(null);
+  // Por padrao, aceita apenas EAN (dígitos). Quando ativado, aceita SKU
+  // tambem — útil pra produtos cuja etiqueta nao bipou ou nao tem EAN
+  // cadastrado. Estado de sessao da bipagem (nao persiste).
+  const [permitirSku, setPermitirSku] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Mantem o foco no input sempre que possivel (apos refresh, apos bipagem, etc.)
@@ -50,13 +54,13 @@ export function ContarUI({
   function bipar(codigo: string) {
     const limpo = codigo.trim();
     if (!limpo) return;
-    // Apenas EAN (dígitos). SKUs alfanuméricos são rejeitados na entrada
-    // — o objetivo é que toda contagem venha do leitor de código de barras.
-    // Edição de quantidade após bipagem continua disponível na lista.
-    if (!/^\d+$/.test(limpo)) {
+    // Por padrao so aceita EAN (digitos) — toggle "Aceitar SKU" libera
+    // entrada alfanumerica para casos onde o produto nao tem EAN cadastrado
+    // ou a etiqueta nao funcionou. Edicao de quantidade continua na lista.
+    if (!permitirSku && !/^\d+$/.test(limpo)) {
       setFeedback({
         tipo: "erro",
-        msg: "Use o leitor de código de barras (EAN). Digitação de SKU não é permitida — apenas números.",
+        msg: "Use o leitor de código de barras (EAN) — ou ative \"Aceitar SKU\" no canto direito.",
       });
       setTimeout(() => inputRef.current?.focus(), 0);
       return;
@@ -88,7 +92,13 @@ export function ContarUI({
 
   return (
     <div className="space-y-6">
-      <BipForm onSubmit={bipar} pending={pending} inputRef={inputRef} />
+      <BipForm
+        onSubmit={bipar}
+        pending={pending}
+        inputRef={inputRef}
+        permitirSku={permitirSku}
+        onTogglePermitirSku={(v) => setPermitirSku(v)}
+      />
 
       {feedback && (
         <FeedbackBanner feedback={feedback} onDismiss={() => setFeedback(null)} />
@@ -107,10 +117,14 @@ function BipForm({
   onSubmit,
   pending,
   inputRef,
+  permitirSku,
+  onTogglePermitirSku,
 }: {
   onSubmit: (codigo: string) => void;
   pending: boolean;
   inputRef: React.RefObject<HTMLInputElement | null>;
+  permitirSku: boolean;
+  onTogglePermitirSku: (v: boolean) => void;
 }) {
   return (
     <form
@@ -123,9 +137,20 @@ function BipForm({
       }}
       className="bg-surface-card border border-hairline rounded-xl p-6"
     >
-      <label htmlFor="codigo" className="caption-uppercase text-muted block mb-3">
-        Bipar código de barras (EAN)
-      </label>
+      <div className="flex items-center justify-between mb-3 gap-3">
+        <label htmlFor="codigo" className="caption-uppercase text-muted">
+          {permitirSku ? "Bipar código ou SKU" : "Bipar código de barras (EAN)"}
+        </label>
+        <label className="inline-flex items-center gap-2 text-[12px] text-muted cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={permitirSku}
+            onChange={(e) => onTogglePermitirSku(e.target.checked)}
+            className="accent-ink h-3.5 w-3.5"
+          />
+          Aceitar SKU
+        </label>
+      </div>
       <div className="flex gap-3">
         <input
           ref={inputRef}
@@ -134,9 +159,13 @@ function BipForm({
           type="text"
           autoFocus
           autoComplete="off"
-          inputMode="numeric"
-          pattern="[0-9]*"
-          placeholder="Use o leitor de código de barras…"
+          inputMode={permitirSku ? "text" : "numeric"}
+          pattern={permitirSku ? undefined : "[0-9]*"}
+          placeholder={
+            permitirSku
+              ? "Bipa, digita SKU ou EAN…"
+              : "Use o leitor de código de barras…"
+          }
           disabled={pending}
           className="flex-1 bg-canvas-soft border border-hairline-strong rounded-md px-4 py-3 text-[16px] text-ink placeholder:text-muted focus:border-ink focus:bg-surface-card focus:outline-none font-mono"
         />
@@ -149,7 +178,9 @@ function BipForm({
         </button>
       </div>
       <p className="mt-3 text-[12px] text-muted">
-        Apenas EAN é aceito — bipe com leitor USB. Cada bipagem soma +1 unidade.
+        {permitirSku
+          ? "Aceita EAN ou SKU. Cada bipagem soma +1 unidade."
+          : "Apenas EAN é aceito — bipe com leitor USB. Cada bipagem soma +1 unidade."}
       </p>
     </form>
   );
