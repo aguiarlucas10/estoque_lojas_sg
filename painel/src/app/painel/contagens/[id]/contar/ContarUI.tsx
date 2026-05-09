@@ -32,10 +32,10 @@ export function ContarUI({
     | null
   >(null);
   const [editando, setEditando] = useState<string | null>(null);
-  // Por padrao, aceita apenas EAN (dígitos). Quando ativado, aceita SKU
-  // tambem — útil pra produtos cuja etiqueta nao bipou ou nao tem EAN
-  // cadastrado. Estado de sessao da bipagem (nao persiste).
-  const [permitirSku, setPermitirSku] = useState(false);
+  // Default: aceita SKU e EAN. Admin pode desligar pra restringir a EAN —
+  // útil quando a loja deve operar 100% via leitor de código de barras.
+  // Estado de sessao da bipagem (nao persiste).
+  const [permitirSku, setPermitirSku] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Mantem o foco no input sempre que possivel (apos refresh, apos bipagem, etc.)
@@ -62,7 +62,7 @@ export function ContarUI({
     if (!permitirSku && !/^\d+$/.test(limpo)) {
       setFeedback({
         tipo: "erro",
-        msg: "Use o leitor de código de barras (EAN) — ou ative \"Aceitar SKU\" no canto direito.",
+        msg: "Use o leitor de código de barras (EAN). Modo restrito está ativo.",
       });
       setTimeout(() => inputRef.current?.focus(), 0);
       return;
@@ -98,7 +98,7 @@ export function ContarUI({
         onSubmit={bipar}
         pending={pending}
         inputRef={inputRef}
-        permitirSku={isAdmin && permitirSku}
+        permitirSku={permitirSku}
         onTogglePermitirSku={(v) => setPermitirSku(v)}
         mostrarToggle={isAdmin}
       />
