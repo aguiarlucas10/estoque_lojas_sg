@@ -99,18 +99,32 @@ create index idx_lj_mov_loja_produto_data on lj_movimentos_estoque (loja_id, pro
 create index idx_lj_mov_origem on lj_movimentos_estoque (origem_tipo, origem_id);
 create index idx_lj_mov_criado_em on lj_movimentos_estoque (criado_em);
 
+-- A última contagem validada de cada (loja, produto) é o "snapshot do real".
+-- O saldo atual é a qtd contada + movimentos criados APÓS a contagem.
+-- Movimentos criados antes da contagem (ou imports retroativos) ficam fora —
+-- já foram absorvidos no ajuste que a contagem gerou.
 create materialized view lj_estoque_atual as
+with ultimas_contagens as (
+  select loja_id, produto_id, max(criado_em) as contagem_em
+  from lj_movimentos_estoque
+  where tipo = 'contagem_validada'
+  group by loja_id, produto_id
+)
 select
-  loja_id,
-  produto_id,
-  sum(qtd)                                  as quantidade,
-  max(case when tipo='contagem_validada'
-           then data_evento end)            as ultima_contagem_em,
-  max(case when tipo='entrada_compra'
-           then data_evento end)            as ultimo_recebimento_em,
-  max(criado_em)                            as atualizado_em
-from lj_movimentos_estoque
-group by loja_id, produto_id
+  m.loja_id,
+  m.produto_id,
+  sum(m.qtd) filter (
+    where uc.contagem_em is null or m.criado_em >= uc.contagem_em
+  )                                          as quantidade,
+  max(case when m.tipo='contagem_validada'
+           then m.data_evento end)           as ultima_contagem_em,
+  max(case when m.tipo='entrada_compra'
+           then m.data_evento end)           as ultimo_recebimento_em,
+  max(m.criado_em)                           as atualizado_em
+from lj_movimentos_estoque m
+left join ultimas_contagens uc
+  on uc.loja_id = m.loja_id and uc.produto_id = m.produto_id
+group by m.loja_id, m.produto_id
 with no data;
 
 create unique index ux_lj_estoque_atual on lj_estoque_atual (loja_id, produto_id);

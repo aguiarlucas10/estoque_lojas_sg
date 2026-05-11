@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
+import { ApagarImportBotao } from "./ApagarImportBotao";
 
 export const dynamic = "force-dynamic";
 
@@ -61,12 +62,16 @@ export default async function ImportsPage() {
               <th className="text-left px-6 py-3">Status</th>
               <th className="text-right px-6 py-3">Importado em</th>
               <th className="px-3"></th>
+              {scope.tipo === "admin" && <th className="px-3"></th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-hairline-soft">
             {(imports ?? []).length === 0 && (
               <tr>
-                <td colSpan={8} className="px-6 py-16 text-center text-muted">
+                <td
+                  colSpan={scope.tipo === "admin" ? 9 : 8}
+                  className="px-6 py-16 text-center text-muted"
+                >
                   Nenhum import ainda. Clique em &quot;Novo import&quot; para começar.
                 </td>
               </tr>
@@ -110,6 +115,16 @@ export default async function ImportsPage() {
                       Detalhes →
                     </Link>
                   </td>
+                  {scope.tipo === "admin" && (
+                    <td className="px-3 py-4 text-right relative">
+                      <ApagarImportBotao
+                        import_id={i.id as string}
+                        loja_codigo={loja?.codigo ?? "—"}
+                        periodo_label={`${dataBR.format(new Date(i.periodo_inicio as string))} → ${dataBR.format(new Date(i.periodo_fim as string))}`}
+                        total_vendas={(i.total_vendas as number) ?? 0}
+                      />
+                    </td>
+                  )}
                 </tr>
               );
             })}
