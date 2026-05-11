@@ -120,6 +120,8 @@ select
            then m.data_evento end)           as ultima_contagem_em,
   max(case when m.tipo='entrada_compra'
            then m.data_evento end)           as ultimo_recebimento_em,
+  max(case when m.tipo='venda'
+           then m.data_evento end)           as ultima_venda_em,
   max(m.criado_em)                           as atualizado_em
 from lj_movimentos_estoque m
 left join ultimas_contagens uc

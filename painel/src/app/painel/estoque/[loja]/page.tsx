@@ -10,6 +10,7 @@ type EstoqueItem = {
   quantidade: number;
   ultima_contagem_em: string | null;
   ultimo_recebimento_em: string | null;
+  ultima_venda_em: string | null;
 };
 
 type Produto = {
@@ -54,7 +55,9 @@ export default async function EstoqueLojaPage({
 
   const { data: estoque } = await supabase
     .from("lj_estoque_atual")
-    .select("produto_id, quantidade, ultima_contagem_em, ultimo_recebimento_em")
+    .select(
+      "produto_id, quantidade, ultima_contagem_em, ultimo_recebimento_em, ultima_venda_em",
+    )
     .eq("loja_id", lojaRow.id)
     .neq("quantidade", 0)
     .order("quantidade", { ascending: false });
@@ -64,6 +67,7 @@ export default async function EstoqueLojaPage({
     quantidade: Number(r.quantidade),
     ultima_contagem_em: r.ultima_contagem_em as string | null,
     ultimo_recebimento_em: r.ultimo_recebimento_em as string | null,
+    ultima_venda_em: r.ultima_venda_em as string | null,
   }));
 
   let produtos: Record<string, Produto> = {};
@@ -110,25 +114,26 @@ export default async function EstoqueLojaPage({
         />
       </div>
 
-      <div className="bg-surface-card border border-hairline rounded-[16px] overflow-hidden">
-        <table className="w-full">
+      <div className="bg-surface-card border border-hairline rounded-[16px] overflow-x-auto">
+        <table className="w-full min-w-[1100px]">
           <thead className="bg-surface-strong border-b border-hairline">
             <tr className="caption-uppercase text-muted">
-              <th className="text-left px-6 py-3">SKU</th>
-              <th className="text-left px-6 py-3">Produto</th>
-              <th className="text-left px-6 py-3">Categoria</th>
-              <th className="text-right px-6 py-3">Quantidade</th>
-              <th className="text-right px-6 py-3">Custo un.</th>
-              <th className="text-right px-6 py-3">Valor</th>
-              <th className="text-right px-6 py-3">Última contagem</th>
-              <th className="text-right px-6 py-3">Último recebimento</th>
-              {scope.tipo === "admin" && <th className="text-right px-6 py-3 w-24">Ação</th>}
+              <th className="text-left px-6 py-3 whitespace-nowrap">SKU</th>
+              <th className="text-left px-6 py-3 whitespace-nowrap">Produto</th>
+              <th className="text-left px-6 py-3 whitespace-nowrap">Categoria</th>
+              <th className="text-right px-6 py-3 whitespace-nowrap">Quantidade</th>
+              <th className="text-right px-6 py-3 whitespace-nowrap">Custo un.</th>
+              <th className="text-right px-6 py-3 whitespace-nowrap">Valor</th>
+              <th className="text-right px-6 py-3 whitespace-nowrap">Última contagem</th>
+              <th className="text-right px-6 py-3 whitespace-nowrap">Último recebimento</th>
+              <th className="text-right px-6 py-3 whitespace-nowrap">Última venda</th>
+              {scope.tipo === "admin" && <th className="text-right px-6 py-3 w-24 whitespace-nowrap">Ação</th>}
             </tr>
           </thead>
           <tbody className="divide-y divide-hairline-soft">
             {items.length === 0 && (
               <tr>
-                <td colSpan={scope.tipo === "admin" ? 9 : 8} className="px-6 py-12 text-center text-muted">
+                <td colSpan={scope.tipo === "admin" ? 10 : 9} className="px-6 py-12 text-center text-muted">
                   Nenhum SKU com saldo nesta loja ainda.
                 </td>
               </tr>
@@ -164,9 +169,14 @@ export default async function EstoqueLojaPage({
                       ? dataBR.format(new Date(i.ultima_contagem_em))
                       : "—"}
                   </td>
-                  <td className="px-6 py-4 text-right text-[13px] text-muted">
+                  <td className="px-6 py-4 text-right text-[13px] text-muted whitespace-nowrap">
                     {i.ultimo_recebimento_em
                       ? dataBR.format(new Date(i.ultimo_recebimento_em))
+                      : "—"}
+                  </td>
+                  <td className="px-6 py-4 text-right text-[13px] text-muted whitespace-nowrap">
+                    {i.ultima_venda_em
+                      ? dataBR.format(new Date(i.ultima_venda_em))
                       : "—"}
                   </td>
                   {scope.tipo === "admin" && (
