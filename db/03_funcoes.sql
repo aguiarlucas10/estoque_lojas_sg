@@ -46,8 +46,6 @@ declare
   v_loja_id     uuid;
   v_count       int := 0;
   d             record;
-  v_saldo_atual numeric(12,3);
-  v_ajuste      numeric(12,3);
   v_custo       numeric(12,2);
 begin
   select loja_id into v_loja_id
@@ -64,27 +62,23 @@ begin
      and si.sessao_id = p_sessao_id
      and p.custo is not null;
 
+  -- A contagem é a "fonte de verdade" do saldo naquele momento.
+  -- Inserimos o valor absoluto (qtd_contada) — não o delta. A matview
+  -- soma apenas movimentos com criado_em >= contagem.criado_em, então
+  -- o saldo atual fica = qtd_contada + eventos genuínos posteriores.
   for d in
     select * from lj_sessoes_itens
      where sessao_id = p_sessao_id and status = 'aprovada'
   loop
-    select coalesce(sum(qtd), 0) into v_saldo_atual
-      from lj_movimentos_estoque
-     where loja_id = v_loja_id and produto_id = d.produto_id;
-
-    v_ajuste := d.qtd_contada - v_saldo_atual;
-
-    if v_ajuste <> 0 then
-      select custo into v_custo from lj_produtos where id = d.produto_id;
-      insert into lj_movimentos_estoque (
-        loja_id, produto_id, tipo, qtd, custo_unitario,
-        data_evento, origem_tipo, origem_id
-      ) values (
-        v_loja_id, d.produto_id, 'contagem_validada', v_ajuste, v_custo,
-        current_date, 'sessao_contagem', p_sessao_id
-      );
-      v_count := v_count + 1;
-    end if;
+    select custo into v_custo from lj_produtos where id = d.produto_id;
+    insert into lj_movimentos_estoque (
+      loja_id, produto_id, tipo, qtd, custo_unitario,
+      data_evento, origem_tipo, origem_id
+    ) values (
+      v_loja_id, d.produto_id, 'contagem_validada', d.qtd_contada, v_custo,
+      current_date, 'sessao_contagem', p_sessao_id
+    );
+    v_count := v_count + 1;
   end loop;
 
   update lj_sessoes_contagem

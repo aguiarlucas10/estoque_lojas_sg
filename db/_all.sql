@@ -101,18 +101,34 @@ create index idx_lj_mov_loja_produto_data on lj_movimentos_estoque (loja_id, pro
 create index idx_lj_mov_origem on lj_movimentos_estoque (origem_tipo, origem_id);
 create index idx_lj_mov_criado_em on lj_movimentos_estoque (criado_em);
 
+-- A última contagem validada de cada (loja, produto) é o "snapshot do real".
+-- O saldo atual é a qtd contada + movimentos criados APÓS a contagem.
+-- Movimentos criados antes da contagem (ou imports retroativos) ficam fora —
+-- já foram absorvidos no ajuste que a contagem gerou.
 create materialized view lj_estoque_atual as
+with ultimas_contagens as (
+  select loja_id, produto_id, max(criado_em) as contagem_em
+  from lj_movimentos_estoque
+  where tipo = 'contagem_validada'
+  group by loja_id, produto_id
+)
 select
-  loja_id,
-  produto_id,
-  sum(qtd)                                  as quantidade,
-  max(case when tipo='contagem_validada'
-           then data_evento end)            as ultima_contagem_em,
-  max(case when tipo='entrada_compra'
-           then data_evento end)            as ultimo_recebimento_em,
-  max(criado_em)                            as atualizado_em
-from lj_movimentos_estoque
-group by loja_id, produto_id
+  m.loja_id,
+  m.produto_id,
+  sum(m.qtd) filter (
+    where uc.contagem_em is null or m.criado_em >= uc.contagem_em
+  )                                          as quantidade,
+  max(case when m.tipo='contagem_validada'
+           then m.data_evento end)           as ultima_contagem_em,
+  max(case when m.tipo='entrada_compra'
+           then m.data_evento end)           as ultimo_recebimento_em,
+  max(case when m.tipo='venda'
+           then m.data_evento end)           as ultima_venda_em,
+  max(m.criado_em)                           as atualizado_em
+from lj_movimentos_estoque m
+left join ultimas_contagens uc
+  on uc.loja_id = m.loja_id and uc.produto_id = m.produto_id
+group by m.loja_id, m.produto_id
 with no data;
 
 create unique index ux_lj_estoque_atual on lj_estoque_atual (loja_id, produto_id);
@@ -306,8 +322,6 @@ declare
   v_loja_id     uuid;
   v_count       int := 0;
   d             record;
-  v_saldo_atual numeric(12,3);
-  v_ajuste      numeric(12,3);
   v_custo       numeric(12,2);
 begin
   select loja_id into v_loja_id
@@ -324,27 +338,23 @@ begin
      and si.sessao_id = p_sessao_id
      and p.custo is not null;
 
+  -- A contagem é a "fonte de verdade" do saldo naquele momento.
+  -- Inserimos o valor absoluto (qtd_contada) — não o delta. A matview
+  -- soma apenas movimentos com criado_em >= contagem.criado_em, então
+  -- o saldo atual fica = qtd_contada + eventos genuínos posteriores.
   for d in
     select * from lj_sessoes_itens
      where sessao_id = p_sessao_id and status = 'aprovada'
   loop
-    select coalesce(sum(qtd), 0) into v_saldo_atual
-      from lj_movimentos_estoque
-     where loja_id = v_loja_id and produto_id = d.produto_id;
-
-    v_ajuste := d.qtd_contada - v_saldo_atual;
-
-    if v_ajuste <> 0 then
-      select custo into v_custo from lj_produtos where id = d.produto_id;
-      insert into lj_movimentos_estoque (
-        loja_id, produto_id, tipo, qtd, custo_unitario,
-        data_evento, origem_tipo, origem_id
-      ) values (
-        v_loja_id, d.produto_id, 'contagem_validada', v_ajuste, v_custo,
-        current_date, 'sessao_contagem', p_sessao_id
-      );
-      v_count := v_count + 1;
-    end if;
+    select custo into v_custo from lj_produtos where id = d.produto_id;
+    insert into lj_movimentos_estoque (
+      loja_id, produto_id, tipo, qtd, custo_unitario,
+      data_evento, origem_tipo, origem_id
+    ) values (
+      v_loja_id, d.produto_id, 'contagem_validada', d.qtd_contada, v_custo,
+      current_date, 'sessao_contagem', p_sessao_id
+    );
+    v_count := v_count + 1;
   end loop;
 
   update lj_sessoes_contagem
