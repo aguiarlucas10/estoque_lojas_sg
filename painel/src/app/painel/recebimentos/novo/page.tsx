@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
-import { NovoRecebimentoUI } from "./NovoRecebimento";
+import { TabsNovoRecebimento } from "./TabsNovoRecebimento";
 
 export const dynamic = "force-dynamic";
 
@@ -27,15 +27,14 @@ export default async function NovoRecebimentoPage() {
         ← Voltar para recebimentos
       </Link>
       <p className="caption-uppercase text-muted mb-3">Novo recebimento</p>
-      <h1 className="display-lg text-ink mb-2">Lançar a partir de PDF</h1>
-      <p className="text-body text-[15px] mb-10 leading-[1.5]">
-        Faça upload do PDF do pedido de venda do Bling. O sistema detecta SKU e
-        quantidade de cada item; você revisa, ajusta SKUs truncados, define o custo
-        unitário e a loja destino, e confirma. Cada item vira um movimento{" "}
-        <code className="text-[13px]">entrada_compra</code> no ledger.
+      <h1 className="display-lg text-ink mb-2">Lançar recebimento</h1>
+      <p className="text-body text-[15px] mb-8 leading-[1.5]">
+        Lance via upload do PDF do Bling ou manualmente bipando produtos. Cada item
+        vira um movimento <code className="text-[13px]">entrada_compra</code> no
+        ledger, atualizando o estoque atual da loja.
       </p>
 
-      <NovoRecebimentoUI
+      <TabsNovoRecebimento
         lojas={(lojas ?? []) as { codigo: string; nome: string }[]}
       />
     </div>

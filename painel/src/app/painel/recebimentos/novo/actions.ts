@@ -103,6 +103,85 @@ export async function confirmarRecebimentoAction(
   redirect(`/painel/recebimentos/${r.recebimento_id}`);
 }
 
+export type ResolverProdutoResult =
+  | {
+      ok: true;
+      // null quando não houve match único; candidatos vem populado com até 5
+      produto: { id: string; sku: string; nome: string; custo: number | null } | null;
+      candidatos: { id: string; sku: string; nome: string; custo: number | null }[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Resolve um código (SKU/EAN/alias) e retorna o produto correspondente.
+ * Usado no lançamento manual de recebimento — admin bipa um EAN ou digita
+ * SKU e o sistema busca em lj_produtos / lj_sku_aliases.
+ */
+export async function resolverProdutoAction(codigo: string): Promise<ResolverProdutoResult> {
+  const scope = await getLojaScope();
+  if (scope.tipo !== "admin") {
+    return { ok: false, error: "Apenas admin pode criar recebimentos." };
+  }
+  if (!codigo.trim()) return { ok: false, error: "Código vazio." };
+
+  const sb = (await import("@/lib/supabase")).getSupabase();
+  const cod = codigo.trim().toUpperCase();
+
+  // 1. SKU exato
+  const { data: bySku } = await sb
+    .from("lj_produtos")
+    .select("id, sku, nome, custo")
+    .eq("sku", cod)
+    .eq("ativo", true)
+    .limit(1);
+  if (bySku && bySku.length > 0) {
+    return { ok: true, produto: bySku[0] as ResolverProdutoResult extends { ok: true; produto: infer P } ? P : never, candidatos: bySku as { id: string; sku: string; nome: string; custo: number | null }[] };
+  }
+
+  // 2. EAN exato
+  const { data: byEan } = await sb
+    .from("lj_produtos")
+    .select("id, sku, nome, custo")
+    .eq("ean", codigo.trim())
+    .eq("ativo", true)
+    .limit(1);
+  if (byEan && byEan.length > 0) {
+    const p = byEan[0] as { id: string; sku: string; nome: string; custo: number | null };
+    return { ok: true, produto: p, candidatos: [p] };
+  }
+
+  // 3. Alias
+  const { data: byAlias } = await sb
+    .from("lj_sku_aliases")
+    .select("produto_id, lj_produtos(id, sku, nome, custo, ativo)")
+    .eq("codigo_alias", cod)
+    .limit(1);
+  if (byAlias && byAlias.length > 0) {
+    const p = byAlias[0].lj_produtos as unknown as
+      | { id: string; sku: string; nome: string; custo: number | null; ativo: boolean }
+      | null;
+    if (p && p.ativo) {
+      const r = { id: p.id, sku: p.sku, nome: p.nome, custo: p.custo };
+      return { ok: true, produto: r, candidatos: [r] };
+    }
+  }
+
+  // 4. Prefix match em SKU (Bling trunca SKUs longos)
+  const { data: prefix } = await sb
+    .from("lj_produtos")
+    .select("id, sku, nome, custo")
+    .ilike("sku", `${cod}%`)
+    .eq("ativo", true)
+    .order("sku")
+    .limit(5);
+  const candidatos = (prefix ?? []) as { id: string; sku: string; nome: string; custo: number | null }[];
+  return {
+    ok: true,
+    produto: candidatos.length === 1 ? candidatos[0] : null,
+    candidatos,
+  };
+}
+
 export async function buscarProdutos(
   query: string,
 ): Promise<{ id: string; sku: string; nome: string; custo: number | null }[]> {
