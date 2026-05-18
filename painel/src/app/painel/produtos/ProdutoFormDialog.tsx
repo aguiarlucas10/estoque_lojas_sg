@@ -8,12 +8,8 @@ import {
   useTransition,
 } from "react";
 import { useRouter } from "next/navigation";
-import {
-  CATEGORIAS_VALIDAS,
-  criarProdutoAction,
-  editarProdutoAction,
-  type ProdutoInput,
-} from "./actions";
+import { criarProdutoAction, editarProdutoAction } from "./actions";
+import { CATEGORIAS_VALIDAS, type ProdutoInput } from "./constants";
 
 export type ProdutoExistente = {
   id: string;
