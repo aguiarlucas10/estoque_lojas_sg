@@ -25,6 +25,11 @@ export async function TopNav() {
               Recebimentos
             </Link>
           )}
+          {scope.tipo === "admin" && (
+            <Link href="/painel/produtos" className="text-muted hover:text-ink">
+              Produtos
+            </Link>
+          )}
           <Link href="/painel/contagens" className="text-muted hover:text-ink">
             Contagens
           </Link>
