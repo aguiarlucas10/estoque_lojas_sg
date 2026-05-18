@@ -132,3 +132,62 @@ export async function editarProdutoAction(
   revalidatePath("/painel/produtos");
   return { ok: true, id: produto_id };
 }
+
+export type BulkPatch = {
+  categoria?: string | null;
+  ativo?: boolean;
+};
+
+export type BulkResult =
+  | { ok: true; atualizados: number }
+  | { ok: false; error: string };
+
+export async function atualizarProdutosEmLoteAction(
+  ids: string[],
+  patch: BulkPatch,
+): Promise<BulkResult> {
+  const scope = await getLojaScope();
+  if (scope.tipo !== "admin") {
+    return { ok: false, error: "Apenas admin pode editar produtos." };
+  }
+
+  if (!Array.isArray(ids) || ids.length === 0) {
+    return { ok: false, error: "Nenhum produto selecionado." };
+  }
+  if (ids.length > 2000) {
+    return { ok: false, error: "Selecione no máximo 2000 produtos por vez." };
+  }
+
+  const update: Record<string, unknown> = {
+    atualizado_em: new Date().toISOString(),
+  };
+  let mudou = false;
+
+  if (patch.categoria !== undefined) {
+    const cat = patch.categoria === null ? null : patch.categoria.trim() || null;
+    if (cat !== null && !(CATEGORIAS_VALIDAS as readonly string[]).includes(cat)) {
+      return { ok: false, error: "Categoria inválida." };
+    }
+    update.categoria = cat;
+    mudou = true;
+  }
+
+  if (patch.ativo !== undefined) {
+    update.ativo = Boolean(patch.ativo);
+    mudou = true;
+  }
+
+  if (!mudou) {
+    return { ok: false, error: "Nada para atualizar." };
+  }
+
+  const sb = getSupabase();
+  const { error, count } = await sb
+    .from("lj_produtos")
+    .update(update, { count: "exact" })
+    .in("id", ids);
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/painel/produtos");
+  return { ok: true, atualizados: count ?? ids.length };
+}
