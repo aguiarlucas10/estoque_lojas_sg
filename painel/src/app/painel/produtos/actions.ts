@@ -182,12 +182,21 @@ export async function atualizarProdutosEmLoteAction(
   }
 
   const sb = getSupabase();
-  const { error, count } = await sb
-    .from("lj_produtos")
-    .update(update, { count: "exact" })
-    .in("id", ids);
-  if (error) return { ok: false, error: error.message };
+  // PostgREST serializa o .in() como ?id=in.(<csv>) na URL. Com ~38 chars por
+  // UUID + virgula, ~200 IDs ja passam de 7KB e batem no limite default.
+  // Quebra em chunks pra evitar "Bad Request" (URI Too Long).
+  const BATCH = 100;
+  let totalCount = 0;
+  for (let i = 0; i < ids.length; i += BATCH) {
+    const chunk = ids.slice(i, i + BATCH);
+    const { error, count } = await sb
+      .from("lj_produtos")
+      .update(update, { count: "exact" })
+      .in("id", chunk);
+    if (error) return { ok: false, error: error.message };
+    totalCount += count ?? chunk.length;
+  }
 
   revalidatePath("/painel/produtos");
-  return { ok: true, atualizados: count ?? ids.length };
+  return { ok: true, atualizados: totalCount };
 }
