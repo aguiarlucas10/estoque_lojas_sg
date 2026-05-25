@@ -358,13 +358,13 @@ export function ProdutosTabela({ produtos }: { produtos: ProdutoExistente[] }) {
                     </td>
                     <td className="px-6 py-3.5 text-[14px] text-ink">
                       <div
-                        className="truncate max-w-[320px]"
+                        className="truncate max-w-[560px]"
                         title={p.nome}
                       >
                         {p.nome}
                       </div>
                       {p.subcategoria && (
-                        <div className="text-[12px] text-muted truncate max-w-[320px]">
+                        <div className="text-[12px] text-muted truncate max-w-[560px]">
                           {p.subcategoria}
                         </div>
                       )}

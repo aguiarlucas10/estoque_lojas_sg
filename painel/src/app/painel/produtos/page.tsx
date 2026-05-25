@@ -49,7 +49,7 @@ export default async function ProdutosPage() {
   const semCusto = produtos.filter((p) => p.ativo && p.custo == null).length;
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-12">
+    <div className="mx-auto max-w-[1600px] px-6 py-12">
       <div className="mb-10">
         <p className="caption-uppercase text-muted mb-3">Catálogo</p>
         <h1 className="display-lg text-ink">Produtos cadastrados</h1>
