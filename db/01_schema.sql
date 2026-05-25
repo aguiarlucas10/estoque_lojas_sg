@@ -132,6 +132,11 @@ with no data;
 
 create unique index ux_lj_estoque_atual on lj_estoque_atual (loja_id, produto_id);
 
+-- Popula a matview imediatamente (criada com 'with no data' acima).
+-- Sem isso, qualquer SELECT em lj_estoque_atual antes do primeiro refresh
+-- (ex: tela de criar sessao de contagem) quebra com "has not been populated".
+refresh materialized view lj_estoque_atual;
+
 -- ============================================================
 -- Recebimentos
 -- ============================================================
