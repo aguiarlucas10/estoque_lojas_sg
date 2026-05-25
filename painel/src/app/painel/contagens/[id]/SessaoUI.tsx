@@ -23,6 +23,10 @@ export type ItemSessao = {
   diferenca: number;
   valor_diferenca: number | null;
   status: "pendente" | "aprovada" | "rejeitada" | "recontar";
+  // Total descontado do qtd_contada por vendas detectadas apos a ultima
+  // bipagem (preenchido pela RPC cruzar_vendas_pos_bipagem ao importar
+  // o CSV de vendas do PDV). 0 = sem ajuste.
+  ajuste_vendas_pos_bip: number;
 };
 
 type Props = {
@@ -341,7 +345,17 @@ function RevisaoTable({
                     {i.qtd_teorica}
                   </td>
                   <td className="px-5 py-3 text-right text-[13px] text-ink font-medium">
-                    {i.qtd_contada}
+                    <div className="inline-flex flex-col items-end">
+                      <span>{i.qtd_contada}</span>
+                      {i.ajuste_vendas_pos_bip > 0 && (
+                        <span
+                          className="caption-uppercase text-[10px] text-[#92400e] bg-[#fef3c7] rounded-pill px-1.5 py-0.5 mt-0.5"
+                          title={`Descontado por venda(s) detectada(s) após a última bipagem deste produto.`}
+                        >
+                          −{i.ajuste_vendas_pos_bip} venda
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td className={`px-5 py-3 text-right text-[13px] font-medium ${diffColor}`}>
                     {i.diferenca > 0 ? "+" : ""}{i.diferenca}

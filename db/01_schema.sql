@@ -16,13 +16,14 @@ drop table if exists
   lj_lojas, lj_produtos, lj_sku_aliases, lj_movimentos_estoque,
   lj_recebimentos, lj_recebimentos_itens,
   lj_imports_vendas, lj_imports_vendas_linhas,
-  lj_sessoes_contagem, lj_sessoes_itens
+  lj_sessoes_contagem, lj_sessoes_itens, lj_sessoes_bipagens
   cascade;
 
 drop function if exists refresh_estoque_atual() cascade;
 drop function if exists sugerir_produtos_por_nome(text, int) cascade;
 drop function if exists gerar_divergencias(uuid) cascade;
 drop function if exists aplicar_contagem_validada(uuid) cascade;
+drop function if exists cruzar_vendas_pos_bipagem(uuid) cascade;
 drop function if exists trg_recebimento_item_after_insert() cascade;
 drop function if exists trg_perda_after_insert() cascade;
 
@@ -217,17 +218,37 @@ create table lj_sessoes_contagem (
 -- 1 linha por (sessao, produto): congela qtd_teorica na criacao,
 -- recebe qtd_contada via bipagens (update incremental), tem status de aprovacao.
 create table lj_sessoes_itens (
-  sessao_id        uuid not null references lj_sessoes_contagem(id) on delete cascade,
-  produto_id       uuid not null references lj_produtos(id),
-  qtd_teorica      numeric(12,3) not null,
-  qtd_contada      numeric(12,3) not null default 0,
-  diferenca        numeric(12,3) generated always as (qtd_contada - qtd_teorica) stored,
-  valor_diferenca  numeric(12,2),
-  status           text not null default 'pendente' check (status in ('pendente','aprovada','rejeitada','recontar')),
-  motivo_provavel  text,
-  aprovado_por     uuid,
-  aprovado_em      timestamptz,
-  observacao       text,
+  sessao_id              uuid not null references lj_sessoes_contagem(id) on delete cascade,
+  produto_id             uuid not null references lj_produtos(id),
+  qtd_teorica            numeric(12,3) not null,
+  qtd_contada            numeric(12,3) not null default 0,
+  diferenca              numeric(12,3) generated always as (qtd_contada - qtd_teorica) stored,
+  valor_diferenca        numeric(12,2),
+  status                 text not null default 'pendente' check (status in ('pendente','aprovada','rejeitada','recontar')),
+  motivo_provavel        text,
+  aprovado_por           uuid,
+  aprovado_em            timestamptz,
+  observacao             text,
+  -- Ajuste por vendas detectadas apos a ultima bipagem do produto.
+  -- qtd_contada ja reflete o ajuste; ajuste_vendas_pos_bip eh o total
+  -- descontado (audit trail + idempotencia ao re-rodar o cruzamento).
+  ajuste_vendas_pos_bip  numeric(12,3) not null default 0,
   primary key (sessao_id, produto_id)
 );
 create index idx_lj_sessoes_itens_status on lj_sessoes_itens (sessao_id, status);
+
+-- Ledger de bipagens: 1 linha por bip individual.
+-- Permite reconstruir o horario em que cada unidade foi contada,
+-- e cruzar com vendas do PDV para detectar saidas posteriores.
+-- Edicao manual (editarQuantidadeAction) nao gera linha aqui;
+-- apenas bipagens fisicas via biparAction.
+create table lj_sessoes_bipagens (
+  id           uuid primary key default gen_random_uuid(),
+  sessao_id    uuid not null references lj_sessoes_contagem(id) on delete cascade,
+  produto_id   uuid not null references lj_produtos(id),
+  qtd          numeric(12,3) not null check (qtd > 0),
+  bipado_em    timestamptz not null default now(),
+  criado_por   uuid
+);
+create index idx_lj_bipagens_sessao_produto on lj_sessoes_bipagens (sessao_id, produto_id, bipado_em);
+create index idx_lj_bipagens_bipado_em on lj_sessoes_bipagens (bipado_em);

@@ -76,7 +76,7 @@ export default async function SessaoPage({
   // deles no sistema fica preservado.
   const { data: itensRaw } = await sb
     .from("lj_sessoes_itens")
-    .select("produto_id, qtd_teorica, qtd_contada, diferenca, valor_diferenca, status")
+    .select("produto_id, qtd_teorica, qtd_contada, diferenca, valor_diferenca, status, ajuste_vendas_pos_bip")
     .eq("sessao_id", id)
     .gt("qtd_contada", 0)
     .limit(5000);
@@ -116,6 +116,7 @@ export default async function SessaoPage({
       diferenca: Number(r.diferenca),
       valor_diferenca: r.valor_diferenca != null ? Number(r.valor_diferenca) : null,
       status: r.status as ItemSessao["status"],
+      ajuste_vendas_pos_bip: Number(r.ajuste_vendas_pos_bip ?? 0),
     };
   });
   itens.sort((a, b) => {

@@ -130,6 +130,9 @@ function ResultadoLoja({ entry }: { entry: { loja_codigo: string; loja_nome: str
       </div>
     );
   }
+  const ajustes = result.ajustes_contagem ?? [];
+  const sessoesAfetadas = new Set(ajustes.map((a) => a.sessao_id)).size;
+  const totalDescontado = ajustes.reduce((acc, a) => acc + a.descontado, 0);
   return (
     <Link
       href={`/painel/imports/${result.import_id}`}
@@ -155,6 +158,13 @@ function ResultadoLoja({ entry }: { entry: { loja_codigo: string; loja_nome: str
         />
         <Stat label="Movimentos" value={result.movimentos} />
       </div>
+      {ajustes.length > 0 && (
+        <div className="mt-3 bg-[#fef3c7] border border-[#fde68a] rounded-lg px-3 py-2 text-[13px] text-[#92400e]">
+          <strong>{ajustes.length}</strong> produto(s) em <strong>{sessoesAfetadas}</strong>{" "}
+          sessão(ões) de contagem aberta(s) tiveram a quantidade contada ajustada por
+          vendas pós-bipagem (total: −{totalDescontado.toLocaleString("pt-BR")}).
+        </div>
+      )}
     </Link>
   );
 }

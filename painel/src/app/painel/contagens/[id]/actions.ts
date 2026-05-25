@@ -229,6 +229,15 @@ export async function biparAction(
     .eq("produto_id", produto_id);
   if (upErr) return { ok: false, error: upErr.message };
 
+  // Ledger de bipagens: 1 linha por bip individual (bipado_em = now()).
+  // Usado depois pelo cruzamento com vendas do PDV (cruzar_vendas_pos_bipagem).
+  // Falha de insert nao bloqueia o bip — qtd_contada ja foi atualizado e
+  // o ledger eh auditoria; mas registramos no console pra investigar.
+  const { error: bipErr } = await sb
+    .from("lj_sessoes_bipagens")
+    .insert({ sessao_id, produto_id, qtd: qtd_a_adicionar });
+  if (bipErr) console.error("falha gravando ledger de bipagem:", bipErr.message);
+
   revalidatePath(`/painel/contagens/${sessao_id}`);
   revalidatePath(`/painel/contagens/${sessao_id}/contar`);
 
