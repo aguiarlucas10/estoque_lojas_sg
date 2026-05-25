@@ -2,14 +2,9 @@ import Link from "next/link";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
 import { ApagarImportBotao } from "./ApagarImportBotao";
+import { dataBR } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
-
-const dataBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
 
 const statusLabel: Record<string, { label: string; tone: "ok" | "pending" | "warn" | "err" }> = {
   processando: { label: "Processando", tone: "pending" },

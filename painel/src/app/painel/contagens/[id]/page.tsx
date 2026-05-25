@@ -3,22 +3,9 @@ import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
 import { SessaoUI, type ItemSessao } from "./SessaoUI";
+import { dataBR, dataHoraBR } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
-
-const dataBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
-
-const dataHoraBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-  hour: "2-digit",
-  minute: "2-digit",
-});
 
 const STATUS_LABEL: Record<string, string> = {
   aberta: "Aberta",

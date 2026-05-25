@@ -4,12 +4,7 @@ import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import Link from "next/link";
 import { criarImport, type NovoImportState } from "./actions";
-
-const dataBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
+import { dataBR } from "@/lib/format-date";
 
 export function NovoImportForm() {
   const [state, formAction] = useActionState<NovoImportState, FormData>(

@@ -2,6 +2,7 @@ import { notFound, redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
 import { AjustarBotao } from "./AjustarBotao";
+import { dataBR } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,6 @@ type Produto = {
 const moedaBR = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
-});
-
-const dataBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
 });
 
 export default async function EstoqueLojaPage({

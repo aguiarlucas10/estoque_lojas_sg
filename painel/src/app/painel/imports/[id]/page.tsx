@@ -3,14 +3,9 @@ import { notFound } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
 import { OrfaoResolver, type Orfao } from "./OrfaoResolver";
+import { dataBR } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
-
-const dataBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
 
 const STATUS_LABEL: Record<string, string> = {
   processando: "Processando",

@@ -2,14 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSupabase } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
+import { dataBR } from "@/lib/format-date";
 
 export const dynamic = "force-dynamic";
 
-const dataBR = new Intl.DateTimeFormat("pt-BR", {
-  day: "2-digit",
-  month: "2-digit",
-  year: "numeric",
-});
 const moedaBR = new Intl.NumberFormat("pt-BR", {
   style: "currency",
   currency: "BRL",
