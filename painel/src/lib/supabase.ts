@@ -12,3 +12,26 @@ export const getSupabase = cache(() => {
     auth: { persistSession: false },
   });
 });
+
+// Supabase REST aplica teto default de 1000 linhas. fetchAll repete
+// .range() em janelas de PAGE até a query devolver menos que PAGE.
+// build deve retornar uma query SEM .range() — o helper aplica.
+const PAGE = 1000;
+export async function fetchAll<T>(
+  build: (sb: ReturnType<typeof getSupabase>) => {
+    range: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>;
+  },
+): Promise<T[]> {
+  const sb = getSupabase();
+  const out: T[] = [];
+  let from = 0;
+  while (true) {
+    const { data, error } = await build(sb).range(from, from + PAGE - 1);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    out.push(...rows);
+    if (rows.length < PAGE) break;
+    from += PAGE;
+  }
+  return out;
+}

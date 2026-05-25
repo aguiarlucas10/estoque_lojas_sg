@@ -1,10 +1,22 @@
 import { redirect } from "next/navigation";
-import { getSupabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
 import { ProdutosTabela } from "./ProdutosTabela";
 import type { ProdutoExistente } from "./ProdutoFormDialog";
 
 export const dynamic = "force-dynamic";
+
+type ProdutoRow = {
+  id: string;
+  sku: string;
+  ean: string | null;
+  nome: string;
+  categoria: string | null;
+  subcategoria: string | null;
+  custo: number | string | null;
+  preco_venda: number | string | null;
+  ativo: boolean;
+};
 
 export default async function ProdutosPage() {
   const scope = await getLojaScope();
@@ -12,13 +24,14 @@ export default async function ProdutosPage() {
     redirect("/");
   }
 
-  const sb = getSupabase();
-  const { data } = await sb
-    .from("lj_produtos")
-    .select("id, sku, ean, nome, categoria, subcategoria, custo, preco_venda, ativo")
-    .order("sku", { ascending: true });
+  const data = await fetchAll<ProdutoRow>((sb) =>
+    sb
+      .from("lj_produtos")
+      .select("id, sku, ean, nome, categoria, subcategoria, custo, preco_venda, ativo")
+      .order("sku", { ascending: true }),
+  );
 
-  const produtos: ProdutoExistente[] = (data ?? []).map((p) => ({
+  const produtos: ProdutoExistente[] = data.map((p) => ({
     id: p.id as string,
     sku: p.sku as string,
     ean: (p.ean as string | null) ?? null,

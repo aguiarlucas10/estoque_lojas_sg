@@ -1,5 +1,5 @@
 import "server-only";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, fetchAll } from "@/lib/supabase";
 import { parseCSVPDV, type ParsedRow } from "@/lib/parser-pdv";
 
 export type ImportInput = {
@@ -8,6 +8,12 @@ export type ImportInput = {
   fim: string;             // YYYY-MM-DD
   arquivo_nome: string;
   registros: ParsedRow[];  // resultado de parseCSVPDV
+};
+
+export type AjusteContagem = {
+  sessao_id: string;
+  produto_id: string;
+  descontado: number;
 };
 
 export type ImportResult = {
@@ -20,6 +26,7 @@ export type ImportResult = {
   duplicados: number;
   movimentos: number;
   status: "concluido" | "aguardando_resolucao";
+  ajustes_contagem: AjusteContagem[];
 } | {
   ok: false;
   error: string;
@@ -92,18 +99,22 @@ export async function importVendas(input: ImportInput): Promise<ImportResult> {
     };
   }
 
-  // Carrega lookups
-  const { data: produtos } = await sb.from("lj_produtos").select("id, sku, ean");
+  // Carrega lookups (pagina para nao bater no teto de 1000 do Supabase REST)
+  const produtos = await fetchAll<{ id: string; sku: string; ean: string | null }>(
+    (sb) => sb.from("lj_produtos").select("id, sku, ean"),
+  );
   const sku_to_id = new Map<string, string>();
   const ean_to_id = new Map<string, string>();
-  for (const p of produtos ?? []) {
-    sku_to_id.set(p.sku as string, p.id as string);
-    if (p.ean) ean_to_id.set(p.ean as string, p.id as string);
+  for (const p of produtos) {
+    sku_to_id.set(p.sku, p.id);
+    if (p.ean) ean_to_id.set(p.ean, p.id);
   }
-  const { data: aliases } = await sb.from("lj_sku_aliases").select("codigo_alias, produto_id");
+  const aliases = await fetchAll<{ codigo_alias: string; produto_id: string }>(
+    (sb) => sb.from("lj_sku_aliases").select("codigo_alias, produto_id"),
+  );
   const alias_to_id = new Map<string, string>();
-  for (const a of aliases ?? []) {
-    alias_to_id.set(a.codigo_alias as string, a.produto_id as string);
+  for (const a of aliases) {
+    alias_to_id.set(a.codigo_alias, a.produto_id);
   }
 
   // Docs ja aplicados em imports anteriores desta loja (dedup por doc)
@@ -250,6 +261,26 @@ export async function importVendas(input: ImportInput): Promise<ImportResult> {
   const status_final = (impFinal?.status as "concluido" | "aguardando_resolucao") ??
     (orfaos === 0 ? "concluido" : "aguardando_resolucao");
 
+  // Cruza com sessoes de contagem abertas: vendas que ocorreram apos a ultima
+  // bipagem de um produto descontam o qtd_contada antes da revisao.
+  // Idempotente (ajuste_vendas_pos_bip armazena o total ja descontado).
+  const { data: ajustesRaw, error: ajustesErr } = await sb.rpc(
+    "cruzar_vendas_pos_bipagem",
+    { p_import_id: import_id },
+  );
+  if (ajustesErr) {
+    console.error("falha cruzando vendas com bipagens:", ajustesErr.message);
+  }
+  const ajustes_contagem: AjusteContagem[] = (ajustesRaw ?? []).map((r: {
+    sessao_id: string;
+    produto_id: string;
+    descontado: number | string;
+  }) => ({
+    sessao_id: r.sessao_id,
+    produto_id: r.produto_id,
+    descontado: Number(r.descontado),
+  }));
+
   await sb.rpc("refresh_estoque_atual");
 
   return {
@@ -262,6 +293,7 @@ export async function importVendas(input: ImportInput): Promise<ImportResult> {
     duplicados,
     movimentos: movimentos.length,
     status: status_final,
+    ajustes_contagem,
   };
 }
 
