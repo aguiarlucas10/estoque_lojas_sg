@@ -1,25 +1,25 @@
 import { notFound, redirect } from "next/navigation";
-import { getSupabase } from "@/lib/supabase";
+import { getSupabase, fetchAll } from "@/lib/supabase";
 import { getLojaScope } from "@/lib/scope";
-import { AjustarBotao } from "./AjustarBotao";
-import { dataBR } from "@/lib/format-date";
+import { EstoqueTabela, type EstoqueLinha } from "./EstoqueTabela";
 
 export const dynamic = "force-dynamic";
 
-type EstoqueItem = {
+type EstoqueRow = {
   produto_id: string;
-  quantidade: number;
+  quantidade: number | string;
   ultima_contagem_em: string | null;
   ultimo_recebimento_em: string | null;
   ultima_venda_em: string | null;
 };
 
-type Produto = {
+type ProdutoRow = {
   id: string;
   sku: string;
   nome: string;
   categoria: string | null;
-  custo: number | null;
+  custo: number | string | null;
+  ativo: boolean;
 };
 
 const moedaBR = new Intl.NumberFormat("pt-BR", {
@@ -47,46 +47,56 @@ export default async function EstoqueLojaPage({
     .maybeSingle();
 
   if (!lojaRow) notFound();
+  const loja_id = lojaRow.id as string;
 
-  const { data: estoque } = await supabase
-    .from("lj_estoque_atual")
-    .select(
-      "produto_id, quantidade, ultima_contagem_em, ultimo_recebimento_em, ultima_venda_em",
-    )
-    .eq("loja_id", lojaRow.id)
-    .neq("quantidade", 0)
-    .order("quantidade", { ascending: false });
+  // Carrega TODOS os produtos ativos + toda a matview da loja.
+  // Joina client-side pra que a busca encontre SKUs zerados tambem.
+  const [produtos, estoque] = await Promise.all([
+    fetchAll<ProdutoRow>((sb) =>
+      sb
+        .from("lj_produtos")
+        .select("id, sku, nome, categoria, custo, ativo")
+        .eq("ativo", true),
+    ),
+    fetchAll<EstoqueRow>((sb) =>
+      sb
+        .from("lj_estoque_atual")
+        .select(
+          "produto_id, quantidade, ultima_contagem_em, ultimo_recebimento_em, ultima_venda_em",
+        )
+        .eq("loja_id", loja_id),
+    ),
+  ]);
 
-  const items: EstoqueItem[] = (estoque ?? []).map((r) => ({
-    produto_id: r.produto_id as string,
-    quantidade: Number(r.quantidade),
-    ultima_contagem_em: r.ultima_contagem_em as string | null,
-    ultimo_recebimento_em: r.ultimo_recebimento_em as string | null,
-    ultima_venda_em: r.ultima_venda_em as string | null,
-  }));
+  const estoquePorProduto = new Map(estoque.map((e) => [e.produto_id, e]));
 
-  let produtos: Record<string, Produto> = {};
-  if (items.length > 0) {
-    const ids = items.map((i) => i.produto_id);
-    const { data: produtosData } = await supabase
-      .from("lj_produtos")
-      .select("id, sku, nome, categoria, custo")
-      .in("id", ids);
-    produtos = Object.fromEntries(
-      (produtosData ?? []).map((p) => [p.id as string, p as Produto]),
-    );
-  }
+  const itens: EstoqueLinha[] = produtos.map((p) => {
+    const e = estoquePorProduto.get(p.id);
+    return {
+      produto_id: p.id,
+      sku: p.sku,
+      nome: p.nome,
+      categoria: p.categoria,
+      custo: p.custo != null ? Number(p.custo) : null,
+      quantidade: e ? Number(e.quantidade) : 0,
+      ultima_contagem_em: e?.ultima_contagem_em ?? null,
+      ultimo_recebimento_em: e?.ultimo_recebimento_em ?? null,
+      ultima_venda_em: e?.ultima_venda_em ?? null,
+    };
+  });
 
-  const skusComSaldo = items.length;
-  const qtdTotal = items.reduce((acc, i) => acc + i.quantidade, 0);
-  const negativos = items.filter((i) => i.quantidade < 0).length;
-  const valorTotal = items.reduce((acc, i) => {
-    const p = produtos[i.produto_id];
-    return acc + (p?.custo != null ? p.custo * i.quantidade : 0);
-  }, 0);
+  // Stats: contam apenas SKUs com saldo != 0
+  const comSaldo = itens.filter((i) => i.quantidade !== 0);
+  const skusComSaldo = comSaldo.length;
+  const qtdTotal = comSaldo.reduce((acc, i) => acc + i.quantidade, 0);
+  const negativos = comSaldo.filter((i) => i.quantidade < 0).length;
+  const valorTotal = comSaldo.reduce(
+    (acc, i) => acc + (i.custo != null ? i.custo * i.quantidade : 0),
+    0,
+  );
 
   return (
-    <div className="mx-auto max-w-[1200px] px-6 py-12">
+    <div className="px-6 py-12">
       <div className="mb-10">
         <p className="caption-uppercase text-muted mb-3">
           {lojaRow.codigo} · {lojaRow.nome}
@@ -100,7 +110,11 @@ export default async function EstoqueLojaPage({
           label="Quantidade total"
           value={qtdTotal.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
         />
-        <Stat label="Valor estimado" value={moedaBR.format(valorTotal)} hint="custo do último recebimento" />
+        <Stat
+          label="Valor estimado"
+          value={moedaBR.format(valorTotal)}
+          hint="custo do último recebimento"
+        />
         <Stat
           label="SKUs negativos"
           value={negativos.toLocaleString("pt-BR")}
@@ -109,88 +123,11 @@ export default async function EstoqueLojaPage({
         />
       </div>
 
-      <div className="bg-surface-card border border-hairline rounded-[16px] max-h-[72vh] overflow-y-auto overflow-x-auto">
-        <table className="w-full min-w-[1100px]">
-          <thead className="bg-surface-strong border-b border-hairline sticky top-0 z-10">
-            <tr className="caption-uppercase text-muted">
-              <th className="text-left px-6 py-3 whitespace-nowrap">SKU</th>
-              <th className="text-left px-6 py-3 whitespace-nowrap">Produto</th>
-              <th className="text-left px-6 py-3 whitespace-nowrap">Categoria</th>
-              <th className="text-right px-6 py-3 whitespace-nowrap">Quantidade</th>
-              <th className="text-right px-6 py-3 whitespace-nowrap">Custo un.</th>
-              <th className="text-right px-6 py-3 whitespace-nowrap">Valor</th>
-              <th className="text-right px-6 py-3 whitespace-nowrap">Última contagem</th>
-              <th className="text-right px-6 py-3 whitespace-nowrap">Último recebimento</th>
-              <th className="text-right px-6 py-3 whitespace-nowrap">Última venda</th>
-              {scope.tipo === "admin" && <th className="text-right px-6 py-3 w-24 whitespace-nowrap">Ação</th>}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-hairline-soft">
-            {items.length === 0 && (
-              <tr>
-                <td colSpan={scope.tipo === "admin" ? 10 : 9} className="px-6 py-12 text-center text-muted">
-                  Nenhum SKU com saldo nesta loja ainda.
-                </td>
-              </tr>
-            )}
-            {items.map((i) => {
-              const p = produtos[i.produto_id];
-              const valor = p?.custo != null ? p.custo * i.quantidade : null;
-              const isNegativo = i.quantidade < 0;
-              return (
-                <tr key={i.produto_id} className="hover:bg-canvas-soft">
-                  <td className="px-6 py-4 font-mono text-[14px] text-body-strong">
-                    {p?.sku ?? "—"}
-                  </td>
-                  <td className="px-6 py-4 text-[14px] text-ink">
-                    <div className="truncate max-w-[280px]" title={p?.nome ?? ""}>
-                      {p?.nome ?? "—"}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-[13px] text-muted">{p?.categoria ?? "—"}</td>
-                  <td
-                    className={`px-6 py-4 text-right font-medium ${isNegativo ? "text-error" : "text-ink"}`}
-                  >
-                    {i.quantidade.toLocaleString("pt-BR", { maximumFractionDigits: 0 })}
-                  </td>
-                  <td className="px-6 py-4 text-right text-[14px] text-body">
-                    {p?.custo != null ? moedaBR.format(p.custo) : "—"}
-                  </td>
-                  <td className="px-6 py-4 text-right text-[14px] text-body">
-                    {valor != null ? moedaBR.format(valor) : "—"}
-                  </td>
-                  <td className="px-6 py-4 text-right text-[13px] text-muted">
-                    {i.ultima_contagem_em
-                      ? dataBR.format(new Date(i.ultima_contagem_em))
-                      : "—"}
-                  </td>
-                  <td className="px-6 py-4 text-right text-[13px] text-muted whitespace-nowrap">
-                    {i.ultimo_recebimento_em
-                      ? dataBR.format(new Date(i.ultimo_recebimento_em))
-                      : "—"}
-                  </td>
-                  <td className="px-6 py-4 text-right text-[13px] text-muted whitespace-nowrap">
-                    {i.ultima_venda_em
-                      ? dataBR.format(new Date(i.ultima_venda_em))
-                      : "—"}
-                  </td>
-                  {scope.tipo === "admin" && (
-                    <td className="px-6 py-4 text-right">
-                      <AjustarBotao
-                        loja_id={lojaRow.id as string}
-                        produto_id={i.produto_id}
-                        sku={p?.sku ?? "—"}
-                        nome={p?.nome ?? "—"}
-                        qtd_atual={i.quantidade}
-                      />
-                    </td>
-                  )}
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+      <EstoqueTabela
+        loja_id={loja_id}
+        itens={itens}
+        isAdmin={scope.tipo === "admin"}
+      />
     </div>
   );
 }
