@@ -34,14 +34,16 @@ export function EstoqueTabela({
   const buscaNorm = busca.trim().toLowerCase();
 
   const filtrados = useMemo(() => {
-    // Sem busca: so SKUs com saldo. Com busca: tudo que bate, inclusive zerados.
+    // Sem busca: SKUs com saldo OU com historico de venda (esconde
+    // o resto do catalogo que nunca teve movimento nesta loja).
+    // Com busca: tudo que bate, inclusive zerados sem venda.
     const base = buscaNorm
       ? itens.filter(
           (i) =>
             i.sku.toLowerCase().includes(buscaNorm) ||
             i.nome.toLowerCase().includes(buscaNorm),
         )
-      : itens.filter((i) => i.quantidade !== 0);
+      : itens.filter((i) => i.quantidade !== 0 || i.ultima_venda_em != null);
     return base.sort((a, b) => b.quantidade - a.quantidade);
   }, [itens, buscaNorm]);
 
@@ -157,7 +159,7 @@ export function EstoqueTabela({
         {filtrados.length.toLocaleString("pt-BR")}
         {buscaNorm
           ? ` resultado${filtrados.length === 1 ? "" : "s"}`
-          : ` SKU${filtrados.length === 1 ? "" : "s"} com saldo`}
+          : ` SKU${filtrados.length === 1 ? "" : "s"} com saldo ou venda registrada`}
       </p>
     </>
   );
