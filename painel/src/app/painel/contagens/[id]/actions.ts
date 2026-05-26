@@ -86,22 +86,25 @@ export async function definirStatusItemAction(
 }
 
 /**
- * Faz balanço da sessão: aprova todos os itens contados (exceto rejeitados
- * pelo admin) e aplica como movimentos no ledger. Único ponto que altera
- * o estoque a partir de uma contagem.
+ * Faz balanço da sessão: aprova TODOS os itens do escopo (exceto rejeitados
+ * pelo admin) e aplica como movimentos no ledger. Itens não bipados viram
+ * movimento contagem_validada com qtd=0, estabelecendo "vi e não tinha nada"
+ * — necessário pra matview parar de somar vendas anteriores e o saldo ficar
+ * em 0 (e não negativo). Único ponto que altera o estoque a partir de uma
+ * contagem.
  */
 export async function fazerBalancoAction(
   sessao_id: string,
 ): Promise<{ ok: true; aprovados: number; movimentos: number } | { ok: false; error: string }> {
   const sb = getSupabase();
 
-  // 1. Aprova todos com qtd_contada > 0 e que não foram rejeitados pelo admin
+  // 1. Aprova todos os itens do escopo (incluindo qtd_contada=0) que não
+  //    foram explicitamente rejeitados pelo admin.
   const { data: aprovadosData, error: aprErr } = await sb
     .from("lj_sessoes_itens")
     .update({ status: "aprovada", aprovado_em: new Date().toISOString() })
     .eq("sessao_id", sessao_id)
     .neq("status", "rejeitada")
-    .gt("qtd_contada", 0)
     .select("produto_id");
   if (aprErr) return { ok: false, error: `Erro aprovando itens: ${aprErr.message}` };
   const aprovados = aprovadosData?.length ?? 0;

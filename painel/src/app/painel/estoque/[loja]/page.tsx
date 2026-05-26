@@ -109,9 +109,9 @@ export default async function EstoqueLojaPage({
         />
       </div>
 
-      <div className="bg-surface-card border border-hairline rounded-[16px] overflow-x-auto">
+      <div className="bg-surface-card border border-hairline rounded-[16px] max-h-[72vh] overflow-y-auto overflow-x-auto">
         <table className="w-full min-w-[1100px]">
-          <thead className="bg-surface-strong border-b border-hairline">
+          <thead className="bg-surface-strong border-b border-hairline sticky top-0 z-10">
             <tr className="caption-uppercase text-muted">
               <th className="text-left px-6 py-3 whitespace-nowrap">SKU</th>
               <th className="text-left px-6 py-3 whitespace-nowrap">Produto</th>
