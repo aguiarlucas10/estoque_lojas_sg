@@ -2,8 +2,15 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { getBipagensProdutoAction, type BipagensResult } from "./actions";
-import { dataHoraBR, dataBR } from "@/lib/format-date";
+import { dataBR } from "@/lib/format-date";
 
+// Formatadores compactos para a linha de cada bipagem
+const dataCurtaBR = new Intl.DateTimeFormat("pt-BR", {
+  day: "2-digit",
+  month: "2-digit",
+  year: "2-digit",
+  timeZone: "America/Sao_Paulo",
+});
 const horaBR = new Intl.DateTimeFormat("pt-BR", {
   hour: "2-digit",
   minute: "2-digit",
@@ -80,7 +87,7 @@ export function BipagensPopover({
 
       {aberto && (
         <div
-          className="absolute right-0 top-full mt-2 z-50 w-[320px] bg-surface-card border border-hairline-strong rounded-xl shadow-xl text-left"
+          className="absolute right-0 top-full mt-2 z-50 w-[380px] bg-surface-card border border-hairline-strong rounded-xl shadow-xl text-left"
           // Evita que click dentro feche o popover via document handler
           onMouseDown={(e) => e.stopPropagation()}
         >
@@ -114,6 +121,7 @@ function ConteudoPopover({
 
   const { sessao, bipagens } = estado.data;
   const totalBipado = bipagens.reduce((acc, b) => acc + b.qtd, 0);
+  const divergencia = totalBipado !== quantidade;
 
   return (
     <>
@@ -133,25 +141,27 @@ function ConteudoPopover({
       {sessao && bipagens.length === 0 && (
         <div className="px-5 py-4 text-[13px] text-muted">
           Produto não foi bipado nesta contagem. Saldo atual ({quantidade})
-          veio de movimentos posteriores (recebimento, venda, ajuste).
+          veio de movimentos posteriores ou edição manual.
         </div>
       )}
 
       {bipagens.length > 0 && (
-        <ul className="divide-y divide-hairline-soft max-h-[360px] overflow-y-auto">
-          {bipagens.map((b, i) => (
-            <li
-              key={`${b.bipado_em}-${i}`}
-              className="flex items-center justify-between gap-3 px-5 py-2.5"
-            >
-              <span className="text-[13px] text-body">
-                {horaBR.format(new Date(b.bipado_em))}
-              </span>
-              <span className="text-[13px] text-ink font-medium tabular-nums">
-                +{b.qtd}
-              </span>
-            </li>
-          ))}
+        <ul className="divide-y divide-hairline-soft max-h-[420px] overflow-y-auto">
+          {bipagens.map((b, i) => {
+            const d = new Date(b.bipado_em);
+            return (
+              <li
+                key={`${b.bipado_em}-${i}`}
+                className="flex items-center gap-3 px-5 py-2 text-[13px] tabular-nums"
+              >
+                <span className="text-muted">{dataCurtaBR.format(d)}</span>
+                <span className="text-body">{horaBR.format(d)}</span>
+                <span className="ml-auto text-ink font-medium">
+                  +{b.qtd} un.
+                </span>
+              </li>
+            );
+          })}
         </ul>
       )}
 
@@ -159,20 +169,21 @@ function ConteudoPopover({
         <div className="px-5 py-3 border-t border-hairline flex items-center justify-between text-[12px]">
           <span className="caption-uppercase text-muted">Total bipado</span>
           <span className="text-ink font-medium tabular-nums">
-            {totalBipado.toLocaleString("pt-BR")}
-            {totalBipado !== quantidade && (
+            {totalBipado.toLocaleString("pt-BR")} un.
+            {divergencia && (
               <span className="text-muted ml-1">
-                (saldo atual: {quantidade})
+                · saldo atual: {quantidade}
               </span>
             )}
           </span>
         </div>
       )}
 
-      {bipagens.length > 0 && bipagens[0] && (
-        <div className="px-5 pb-3 text-[11px] text-muted">
-          1ª bipagem: {dataHoraBR.format(new Date(bipagens[0].bipado_em))} ·
-          última: {dataHoraBR.format(new Date(bipagens[bipagens.length - 1].bipado_em))}
+      {divergencia && bipagens.length > 0 && (
+        <div className="px-5 pb-3 text-[11px] text-muted leading-snug">
+          Divergência entre bipado e saldo: edição manual da quantidade na
+          contagem ou movimentos posteriores (venda, recebimento, ajuste) não
+          aparecem nesta lista.
         </div>
       )}
     </>
