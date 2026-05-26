@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { AjustarBotao } from "./AjustarBotao";
+import { BipagensPopover } from "./BipagensPopover";
 import { dataBR } from "@/lib/format-date";
 
 export type EstoqueLinha = {
@@ -112,9 +113,11 @@ export function EstoqueTabela({
                       negativo ? "text-error" : zero ? "text-muted" : "text-ink"
                     }`}
                   >
-                    {i.quantidade.toLocaleString("pt-BR", {
-                      maximumFractionDigits: 0,
-                    })}
+                    <BipagensPopover
+                      loja_id={loja_id}
+                      produto_id={i.produto_id}
+                      quantidade={i.quantidade}
+                    />
                   </td>
                   <td className="px-6 py-4 text-right text-[14px] text-body">
                     {i.custo != null ? moedaBR.format(i.custo) : "—"}

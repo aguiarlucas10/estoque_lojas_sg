@@ -75,3 +75,61 @@ export async function ajustarEstoqueAction(input: {
 
   return { ok: true, delta, novo_saldo: input.nova_qtd };
 }
+
+export type BipagensResult =
+  | {
+      ok: true;
+      sessao: { id: string; finalizada_em: string | null } | null;
+      bipagens: { qtd: number; bipado_em: string }[];
+    }
+  | { ok: false; error: string };
+
+/**
+ * Retorna as bipagens individuais de um produto na ultima sessao de contagem
+ * finalizada da loja. Usado pelo popover de detalhe na tela de estoque.
+ *
+ * Pode retornar sessao=null (loja sem contagem finalizada) ou bipagens=[]
+ * (produto fora do que foi bipado na ultima contagem). O cliente trata.
+ */
+export async function getBipagensProdutoAction(
+  loja_id: string,
+  produto_id: string,
+): Promise<BipagensResult> {
+  if (!loja_id || !produto_id) {
+    return { ok: false, error: "Loja ou produto nao informado." };
+  }
+  const sb = getSupabase();
+
+  const { data: sessao, error: sErr } = await sb
+    .from("lj_sessoes_contagem")
+    .select("id, finalizada_em")
+    .eq("loja_id", loja_id)
+    .eq("status", "finalizada")
+    .order("finalizada_em", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (sErr) return { ok: false, error: sErr.message };
+  if (!sessao) {
+    return { ok: true, sessao: null, bipagens: [] };
+  }
+
+  const { data: bips, error: bErr } = await sb
+    .from("lj_sessoes_bipagens")
+    .select("qtd, bipado_em")
+    .eq("sessao_id", sessao.id as string)
+    .eq("produto_id", produto_id)
+    .order("bipado_em", { ascending: true });
+  if (bErr) return { ok: false, error: bErr.message };
+
+  return {
+    ok: true,
+    sessao: {
+      id: sessao.id as string,
+      finalizada_em: (sessao.finalizada_em as string | null) ?? null,
+    },
+    bipagens: (bips ?? []).map((b) => ({
+      qtd: Number(b.qtd),
+      bipado_em: b.bipado_em as string,
+    })),
+  };
+}
