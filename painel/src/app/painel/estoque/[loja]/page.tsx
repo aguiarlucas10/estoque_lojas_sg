@@ -51,7 +51,7 @@ export default async function EstoqueLojaPage({
 
   // Carrega TODOS os produtos ativos + toda a matview da loja.
   // Joina client-side pra que a busca encontre SKUs zerados tambem.
-  const [produtos, estoque] = await Promise.all([
+  const [produtos, estoque, ultSessao] = await Promise.all([
     fetchAll<ProdutoRow>((sb) =>
       sb
         .from("lj_produtos")
@@ -66,7 +66,52 @@ export default async function EstoqueLojaPage({
         )
         .eq("loja_id", loja_id),
     ),
+    supabase
+      .from("lj_sessoes_contagem")
+      .select("id")
+      .eq("loja_id", loja_id)
+      .eq("status", "finalizada")
+      .order("finalizada_em", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
+
+  // Pra detectar edicao manual na ultima contagem: compara qtd_contada
+  // (lj_sessoes_itens) com soma das bipagens individuais. Se diferir,
+  // o operador digitou a quantidade em vez de bipar unidade por unidade.
+  const edicaoManualPorProduto = new Map<string, boolean>();
+  const sessaoId = (ultSessao.data?.id as string | undefined) ?? null;
+  if (sessaoId) {
+    const [itensSessao, bipagensSessao] = await Promise.all([
+      fetchAll<{ produto_id: string; qtd_contada: number | string }>((sb) =>
+        sb
+          .from("lj_sessoes_itens")
+          .select("produto_id, qtd_contada")
+          .eq("sessao_id", sessaoId)
+          .gt("qtd_contada", 0),
+      ),
+      fetchAll<{ produto_id: string; qtd: number | string }>((sb) =>
+        sb
+          .from("lj_sessoes_bipagens")
+          .select("produto_id, qtd")
+          .eq("sessao_id", sessaoId),
+      ),
+    ]);
+    const bipsPorProduto = new Map<string, number>();
+    for (const b of bipagensSessao) {
+      bipsPorProduto.set(
+        b.produto_id,
+        (bipsPorProduto.get(b.produto_id) ?? 0) + Number(b.qtd),
+      );
+    }
+    for (const i of itensSessao) {
+      const contado = Number(i.qtd_contada);
+      const bipado = bipsPorProduto.get(i.produto_id) ?? 0;
+      if (contado !== bipado) {
+        edicaoManualPorProduto.set(i.produto_id, true);
+      }
+    }
+  }
 
   const estoquePorProduto = new Map(estoque.map((e) => [e.produto_id, e]));
 
@@ -82,6 +127,7 @@ export default async function EstoqueLojaPage({
       ultima_contagem_em: e?.ultima_contagem_em ?? null,
       ultimo_recebimento_em: e?.ultimo_recebimento_em ?? null,
       ultima_venda_em: e?.ultima_venda_em ?? null,
+      edicao_manual_na_contagem: edicaoManualPorProduto.get(p.id) ?? false,
     };
   });
 

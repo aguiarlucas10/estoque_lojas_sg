@@ -15,6 +15,9 @@ export type EstoqueLinha = {
   ultima_contagem_em: string | null;
   ultimo_recebimento_em: string | null;
   ultima_venda_em: string | null;
+  // true quando a qtd_contada da ultima sessao difere da soma das
+  // bipagens individuais — operador digitou em vez de bipar.
+  edicao_manual_na_contagem: boolean;
 };
 
 const moedaBR = new Intl.NumberFormat("pt-BR", {
@@ -113,11 +116,21 @@ export function EstoqueTabela({
                       negativo ? "text-error" : zero ? "text-muted" : "text-ink"
                     }`}
                   >
-                    <BipagensPopover
-                      loja_id={loja_id}
-                      produto_id={i.produto_id}
-                      quantidade={i.quantidade}
-                    />
+                    <span className="inline-flex items-center gap-1.5">
+                      {i.edicao_manual_na_contagem && (
+                        <span
+                          className="text-[14px] leading-none cursor-help"
+                          title="Quantidade editada manualmente na última contagem (não bipada unidade por unidade)"
+                        >
+                          ⚠️
+                        </span>
+                      )}
+                      <BipagensPopover
+                        loja_id={loja_id}
+                        produto_id={i.produto_id}
+                        quantidade={i.quantidade}
+                      />
+                    </span>
                   </td>
                   <td className="px-6 py-4 text-right text-[14px] text-body">
                     {i.custo != null ? moedaBR.format(i.custo) : "—"}
