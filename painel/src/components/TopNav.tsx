@@ -33,6 +33,9 @@ export async function TopNav() {
           <Link href="/painel/contagens" className="text-muted hover:text-ink">
             Contagens
           </Link>
+          <Link href="/painel/exportar" className="text-muted hover:text-ink">
+            Exportar
+          </Link>
         </nav>
         <div className="flex items-center gap-4">
           {scope.tipo === "loja" ? (
