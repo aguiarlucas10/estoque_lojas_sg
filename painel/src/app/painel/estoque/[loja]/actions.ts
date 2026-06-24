@@ -32,15 +32,22 @@ export async function ajustarEstoqueAction(input: {
 
   const sb = getSupabase();
 
-  // Saldo atual = sum(qtd) de todos os movimentos da loja+produto
-  const { data: movs, error: movErr } = await sb
-    .from("lj_movimentos_estoque")
-    .select("qtd")
+  // Saldo atual = o MESMO valor exibido na tela. A matview lj_estoque_atual
+  // conta apenas os movimentos a partir da ultima contagem validada — vendas
+  // anteriores a contagem ja foram absorvidas no ajuste que ela gerou.
+  // Somar TODOS os movimentos (como era antes) inflava o delta com essas
+  // vendas pre-contagem: ajustar p/ 10 um produto exibido como 0 que tinha
+  // -5 de vendas antigas resultava em delta 15 -> saldo ia pra 15.
+  const { data: estoqueRow, error: estErr } = await sb
+    .from("lj_estoque_atual")
+    .select("quantidade")
     .eq("loja_id", input.loja_id)
-    .eq("produto_id", input.produto_id);
-  if (movErr) return { ok: false, error: `Erro lendo saldo: ${movErr.message}` };
+    .eq("produto_id", input.produto_id)
+    .maybeSingle();
+  if (estErr) return { ok: false, error: `Erro lendo saldo: ${estErr.message}` };
 
-  const saldoAtual = (movs ?? []).reduce((acc, m) => acc + Number(m.qtd), 0);
+  const saldoAtual =
+    estoqueRow?.quantidade != null ? Number(estoqueRow.quantidade) : 0;
   const delta = input.nova_qtd - saldoAtual;
 
   if (delta === 0) {
